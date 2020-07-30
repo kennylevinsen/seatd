@@ -1,0 +1,28 @@
+image: archlinux
+packages:
+   - meson
+   - linux-headers
+   - clang
+   - clang-analyzer
+sources:
+   - https://git.sr.ht/~kennylevinsen/seatd
+tasks:
+   - prepare: |
+      cd seatd
+      meson -Dlogind=enabled -Dseatd=enabled -Dbuiltin=enabled build
+   - build: |
+      cd seatd
+      ninja -C build
+   - scan-build: |
+      cd seatd
+      ninja -C build scan-build
+      [ -z "$(ls -A build/meson-logs/scanbuild/ 2>/dev/null)" ]
+   - smoketest: |
+      cd seatd
+      rm -rf build
+      meson -Db_sanitize=address -Dlogind=enabled -Dseatd=enabled -Dbuiltin=enabled build
+      ninja -C build
+      timeout -s KILL 30s ./.builds/smoketest-seatd.sh
+   - smoketest-builtin: |
+      cd seatd
+      timeout -s KILL 30s ./.builds/smoketest-builtin.sh

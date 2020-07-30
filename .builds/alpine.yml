@@ -1,0 +1,26 @@
+image: alpine/edge
+packages:
+   - meson
+   - linux-headers
+   - clang
+   - clang-analyzer
+sources:
+   - https://git.sr.ht/~kennylevinsen/seatd
+tasks:
+   - prepare: |
+      cd seatd
+      meson build -Dseatd=enabled -Dbuiltin=enabled -Dlogind=disabled
+   - build: |
+      cd seatd
+      ninja -C build
+   - scan-build: |
+      cd seatd
+      ninja -C build scan-build
+      [ -z "$(ls -A build/meson-logs/scanbuild/ 2>/dev/null)" ]
+   - smoketest: |
+      cd seatd
+      timeout -s KILL 30s ./.builds/smoketest-seatd.sh
+   - check-format: |
+      cd seatd
+      ninja -C build clang-format
+      git diff --exit-code
