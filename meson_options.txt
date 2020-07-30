@@ -1,0 +1,5 @@
+option('logind', type: 'feature', value: 'disabled', description: 'logind support')
+option('seatd', type: 'feature', value: 'enabled', description: 'seatd support')
+option('builtin', type: 'feature', value: 'disabled', description: 'builtin seatd server')
+option('server', type: 'feature', value: 'enabled', description: 'seatd server')
+option('examples', type: 'feature', value: 'enabled', description: 'libseat example programs')
