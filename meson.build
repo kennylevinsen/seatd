@@ -2,7 +2,7 @@ project(
 	'seatd',
 	'c',
 	version: '0.1',
-	meson_version: '>=0.47.0',
+	meson_version: '>=0.53.0',
 	default_options: [
 		'c_std=c11',
 		'warning_level=3',
@@ -90,14 +90,17 @@ if get_option('seatd').enabled()
 	add_project_arguments('-DSEATD_ENABLED=1', language: 'c')
 endif
 
+logind_provider = ''
 if get_option('logind').enabled()
 	logind = dependency('libsystemd', required: false)
 	add_project_arguments('-DLOGIND_ENABLED=1', language: 'c')
 	if logind.found()
 		add_project_arguments('-DHAVE_SYSTEMD=1', language: 'c')
+		logind_provider = 'systemd'
 	else
 		logind = dependency('libelogind')
 		add_project_arguments('-DHAVE_ELOGIND=1', language: 'c')
+		logind_provider = 'elogind'
 	endif
 
 	private_files += [
@@ -155,3 +158,10 @@ if get_option('examples').enabled()
 		install: false,
 	)
 endif
+
+summary({
+   'seatd': get_option('seatd').enabled() ? 1 : 0,
+   'builtin': get_option('builtin').enabled() ? 1 : 0,
+   'systemd': logind_provider == 'systemd' ? 1 : 0,
+   'elogind': logind_provider == 'elogind' ? 1 : 0,
+})
