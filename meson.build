@@ -23,12 +23,16 @@ add_project_arguments(
 		'-Wmissing-prototypes',
 		'-Wno-unknown-warning',
 		'-Wvla',
-		'-D_XOPEN_SOURCE=9000',
 		'-Wl,--exclude-libs=ALL',
 		'-fvisibility=hidden',
+		'-D_XOPEN_SOURCE=700',
 	],
 	language: 'c',
 )
+
+if ['debugoptimized', 'release', 'minsize'].contains(get_option('buildtype'))
+   add_project_arguments('-D_FORTIFY_SOURCE=2', language: 'c')
+endif
 
 # Hacks
 source_root = meson.current_source_dir().split('/')
