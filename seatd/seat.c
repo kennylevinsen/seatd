@@ -135,7 +135,7 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		return NULL;
 	}
 
-	char sanitized_path[MAX_PATH_LEN];
+	char sanitized_path[PATH_MAX];
 	if (realpath(path, sanitized_path) == NULL) {
 		log_errorf("invalid path '%s': %s", path, strerror(errno));
 		return NULL;
