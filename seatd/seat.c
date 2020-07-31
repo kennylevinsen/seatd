@@ -106,7 +106,7 @@ int seat_remove_client(struct seat *seat, struct client *client) {
 	client->seat = NULL;
 	log_debug("removed client");
 
-	return found ? -1 : 0;
+	return found ? 0 : -1;
 }
 
 struct seat_device *seat_find_device(struct client *client, int device_id) {
