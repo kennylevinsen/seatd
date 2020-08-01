@@ -1,6 +1,8 @@
 # seatd and libseat
 
-A minimal seat management daemon, and a universal seat management library. Alpha.
+A minimal seat management daemon, and a universal seat management library.
+
+Currently supports Linux and FreeBSD. Alpha
 
 ## What is seat management?
 
