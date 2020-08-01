@@ -226,7 +226,7 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 int seat_close_device(struct client *client, struct seat_device *seat_device) {
 	assert(client);
 	assert(client->seat);
-	assert(seat_device && seat_device->fd > 0);
+	assert(seat_device && seat_device->fd != -1);
 
 	// Find the device in our list
 	size_t idx = list_find(&client->devices, seat_device);
