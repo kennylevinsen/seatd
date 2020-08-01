@@ -1,7 +1,5 @@
 #!/bin/sh
 
-res=0
-
 # Devices that exist on sr.ht
 if [ -e "/dev/input/event0" ]
 then
@@ -24,11 +22,9 @@ do
    if ! sudo LIBSEAT_BACKEND=builtin LIBSEAT_LOGLEVEL=debug SEATD_SOCK=./seatd.sock ./build/simpletest $file
    then
       echo "Simpletest failed"
-      res=1
-      break
+      exit $res
    fi
    cnt=$((cnt+1))
 done
 
-
-exit $res
+echo "smoketest-builtin completed"

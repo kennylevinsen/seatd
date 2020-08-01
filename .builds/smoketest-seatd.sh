@@ -54,3 +54,5 @@ done
 # Wait for it to shut down
 #
 sudo killall seatd 2>/dev/null
+
+echo "smoketest-seatd completed"
