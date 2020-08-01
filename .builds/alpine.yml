@@ -20,6 +20,9 @@ tasks:
    - smoketest: |
       cd seatd
       timeout -s KILL 30s ./.builds/smoketest-seatd.sh
+   - smoketest-builtin: |
+      cd seatd
+      timeout -s KILL 30s ./.builds/smoketest-builtin.sh
    - check-format: |
       cd seatd
       ninja -C build clang-format
