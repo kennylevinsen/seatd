@@ -21,8 +21,11 @@ static void handle_disable(struct libseat *backend, void *data) {
 }
 
 int main(int argc, char *argv[]) {
-	(void)argc;
-	(void)argv;
+	if (argc < 2) {
+		fprintf(stderr, "Specify name of file to open as argument\n");
+		return -1;
+	}
+	char *file = argv[1];
 
 	int active = 0;
 	struct libseat_seat_listener listener = {
@@ -44,9 +47,9 @@ int main(int argc, char *argv[]) {
 	fprintf(stderr, "active!\n");
 
 	int fd, device;
-	device = libseat_open_device(backend, "/dev/dri/card0", &fd);
+	device = libseat_open_device(backend, file, &fd);
 	fprintf(stderr, "libseat_open_device(backend: %p, path: %s, fd: %p) = %d\n",
-		(void *)backend, "/dev/dri/card0", (void *)&fd, device);
+		(void *)backend, file, (void *)&fd, device);
 	if (device == -1) {
 		fprintf(stderr, "libseat_open_device() failed: %s\n", strerror(errno));
 		libseat_close_seat(backend);
