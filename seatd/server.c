@@ -187,7 +187,7 @@ int server_listen(struct server *server, const char *path) {
 	union {
 		struct sockaddr_un unix;
 		struct sockaddr generic;
-	} addr = {0};
+	} addr = {{0}};
 	int fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (fd == -1) {
 		log_errorf("could not create socket: %s", strerror(errno));
