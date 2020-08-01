@@ -1,8 +1,15 @@
-#include <linux/input.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
-#include <sys/sysmacros.h>
 #include <sys/types.h>
+
+#if defined(__linux__)
+#include <linux/input.h>
+#include <sys/sysmacros.h>
+#elif defined(__FreeBSD__)
+#include <dev/evdev/input.h>
+#else
+#error Unsupported platform
+#endif
 
 #include "evdev.h"
 

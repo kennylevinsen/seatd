@@ -1,6 +1,9 @@
 #include <sys/ioctl.h>
-#include <sys/sysmacros.h>
 #include <sys/types.h>
+
+#ifdef __linux__
+#include <sys/sysmacros.h>
+#endif
 
 #include "drm.h"
 
