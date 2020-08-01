@@ -1,0 +1,15 @@
+image: freebsd/latest
+packages:
+   - meson
+sources:
+   - https://git.sr.ht/~kennylevinsen/seatd
+tasks:
+   - prepare: |
+      cd seatd
+      meson build -Dseatd=enabled -Dbuiltin=enabled -Dlogind=disabled
+   - build: |
+      cd seatd
+      ninja -C build
+   - smoketest: |
+      cd seatd
+      timeout -s KILL 30s ./.builds/smoketest-seatd.sh
