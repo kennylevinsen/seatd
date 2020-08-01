@@ -41,6 +41,7 @@ int main(int argc, char *argv[]) {
 
 	if (server_listen(server, path) == -1) {
 		log_errorf("server_listen failed: %s", strerror(errno));
+		server_destroy(server);
 		return 1;
 	}
 
@@ -52,6 +53,8 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 	}
+
+	server_destroy(server);
 	unlink(path);
 	return 0;
 }
