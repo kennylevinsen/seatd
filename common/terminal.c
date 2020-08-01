@@ -1,13 +1,30 @@
 #include "string.h"
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/kd.h>
-#include <linux/vt.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+
+#if defined(__linux__)
+#include <linux/kd.h>
+#include <linux/vt.h>
+#define TTY0  "/dev/tty0"
+#define TTYF  "/dev/tty%d"
+#define K_ON  K_UNICODE
+#define FRSIG 0
+#elif defined(__FreeBSD__)
+#include <sys/consio.h>
+#include <sys/kbio.h>
+#define TTY0 "/dev/ttyv0"
+#define TTYF "/dev/ttyv%d"
+#define K_ON  K_XLATE
+#define K_OFF K_CODE
+#define FRSIG SIGIO
+#else
+#error Unsupported platform
+#endif
 
 #include "log.h"
 #include "terminal.h"
@@ -15,12 +32,14 @@
 #define TTYPATHLEN 64
 
 int terminal_current_vt(void) {
-	struct vt_stat st;
-	int fd = open("/dev/tty0", O_RDWR | O_NOCTTY);
+	int fd = open(TTY0, O_RDWR | O_NOCTTY);
 	if (fd == -1) {
 		log_errorf("could not open tty0: %s", strerror(errno));
 		return -1;
 	}
+
+#if defined(__linux__)
+	struct vt_stat st;
 	int res = ioctl(fd, VT_GETSTATE, &st);
 	close(fd);
 	if (res == -1) {
@@ -28,6 +47,18 @@ int terminal_current_vt(void) {
 		return -1;
 	}
 	return st.v_active;
+#elif defined(__FreeBSD__)
+	int vt;
+	int res = ioctl(fd, VT_GETACTIVE, &vt);
+	close(fd);
+	if (res == -1) {
+		log_errorf("could not retrieve VT state: %s", strerror(errno));
+		return -1;
+	}
+	return vt;
+#else
+#error Unsupported platform
+#endif
 }
 
 int terminal_setup(int vt) {
@@ -36,7 +67,7 @@ int terminal_setup(int vt) {
 		vt = 0;
 	}
 	char path[TTYPATHLEN];
-	if (snprintf(path, TTYPATHLEN, "/dev/tty%d", vt) == -1) {
+	if (snprintf(path, TTYPATHLEN, TTYF, vt) == -1) {
 		log_errorf("could not generate tty path: %s", strerror(errno));
 		return -1;
 	}
@@ -51,7 +82,7 @@ int terminal_setup(int vt) {
 		.waitv = 0,
 		.relsig = SIGUSR1,
 		.acqsig = SIGUSR2,
-		.frsig = 0,
+		.frsig = FRSIG,
 	};
 
 	int res = ioctl(fd, VT_SETMODE, &mode);
@@ -69,7 +100,7 @@ int terminal_teardown(int vt) {
 		vt = 0;
 	}
 	char path[TTYPATHLEN];
-	if (snprintf(path, TTYPATHLEN, "/dev/tty%d", vt) == -1) {
+	if (snprintf(path, TTYPATHLEN, TTYF, vt) == -1) {
 		log_errorf("could not generate tty path: %s", strerror(errno));
 		return -1;
 	}
@@ -83,7 +114,7 @@ int terminal_teardown(int vt) {
 		close(fd);
 		return -1;
 	}
-	if (ioctl(fd, KDSKBMODE, K_UNICODE) == -1) {
+	if (ioctl(fd, KDSKBMODE, K_ON) == -1) {
 		log_errorf("could not set KD keyboard mode: %s", strerror(errno));
 		close(fd);
 		return -1;
@@ -94,7 +125,7 @@ int terminal_teardown(int vt) {
 		.waitv = 0,
 		.relsig = SIGUSR1,
 		.acqsig = SIGUSR2,
-		.frsig = 0,
+		.frsig = FRSIG,
 	};
 	if (ioctl(fd, VT_SETMODE, &mode) == -1) {
 		log_errorf("could not set VT mode: %s", strerror(errno));
@@ -108,7 +139,7 @@ int terminal_teardown(int vt) {
 
 int terminal_switch_vt(int vt) {
 	log_debugf("switching to vt %d", vt);
-	int fd = open("/dev/tty0", O_RDWR | O_NOCTTY);
+	int fd = open(TTY0, O_RDWR | O_NOCTTY);
 	if (fd == -1) {
 		log_errorf("could not open tty0: %s", strerror(errno));
 		return -1;
@@ -119,7 +150,7 @@ int terminal_switch_vt(int vt) {
 		.waitv = 0,
 		.relsig = SIGUSR1,
 		.acqsig = SIGUSR2,
-		.frsig = 0,
+		.frsig = FRSIG,
 	};
 
 	if (ioctl(fd, VT_SETMODE, &mode) == -1) {
@@ -140,7 +171,7 @@ int terminal_switch_vt(int vt) {
 
 int terminal_ack_switch(void) {
 	log_debug("acking vt switch");
-	int fd = open("/dev/tty0", O_RDWR | O_NOCTTY);
+	int fd = open(TTY0, O_RDWR | O_NOCTTY);
 	if (fd == -1) {
 		log_errorf("could not open tty0: %s", strerror(errno));
 		return -1;
@@ -161,7 +192,7 @@ int terminal_set_keyboard(int vt, bool enable) {
 		vt = 0;
 	}
 	char path[TTYPATHLEN];
-	if (snprintf(path, TTYPATHLEN, "/dev/tty%d", vt) == -1) {
+	if (snprintf(path, TTYPATHLEN, TTYF, vt) == -1) {
 		log_errorf("could not generate tty path: %s", strerror(errno));
 		return -1;
 	}
@@ -170,7 +201,7 @@ int terminal_set_keyboard(int vt, bool enable) {
 		log_errorf("could not generate tty path: %s", strerror(errno));
 		return -1;
 	}
-	int res = ioctl(fd, KDSKBMODE, enable ? K_UNICODE : K_OFF);
+	int res = ioctl(fd, KDSKBMODE, enable ? K_OFF : K_OFF);
 	close(fd);
 	if (res == -1) {
 		log_errorf("could not set KD keyboard mode: %s", strerror(errno));
@@ -184,7 +215,7 @@ int terminal_set_graphics(int vt, bool enable) {
 		vt = 0;
 	}
 	char path[TTYPATHLEN];
-	if (snprintf(path, TTYPATHLEN, "/dev/tty%d", vt) == -1) {
+	if (snprintf(path, TTYPATHLEN, TTYF, vt) == -1) {
 		log_errorf("could not generate tty path: %s", strerror(errno));
 		return -1;
 	}
