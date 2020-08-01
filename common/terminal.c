@@ -17,8 +17,8 @@
 #elif defined(__FreeBSD__)
 #include <sys/consio.h>
 #include <sys/kbio.h>
-#define TTY0 "/dev/ttyv0"
-#define TTYF "/dev/ttyv%d"
+#define TTY0  "/dev/ttyv0"
+#define TTYF  "/dev/ttyv%d"
 #define K_ON  K_XLATE
 #define K_OFF K_CODE
 #define FRSIG SIGIO

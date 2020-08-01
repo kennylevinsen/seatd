@@ -9,6 +9,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#if defined(__FreeBSD__)
+#include <sys/ucred.h>
+#include <sys/un.h>
+#endif
+
 #include "client.h"
 #include "log.h"
 #include "poller.h"
@@ -18,6 +23,7 @@
 #include "terminal.h"
 
 static int get_peer(int fd, pid_t *pid, uid_t *uid, gid_t *gid) {
+#if defined(__linux__)
 	struct ucred cred;
 	socklen_t len = sizeof cred;
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cred, &len) == -1) {
@@ -27,6 +33,19 @@ static int get_peer(int fd, pid_t *pid, uid_t *uid, gid_t *gid) {
 	*uid = cred.uid;
 	*gid = cred.gid;
 	return 0;
+#elif defined(__FreeBSD__)
+	struct xucred cred;
+	socklen_t len = sizeof cred;
+	if (getsockopt(fd, SOL_SOCKET, LOCAL_PEERCRED, &cred, &len) == -1) {
+		return -1;
+	}
+	*pid = -1;
+	*uid = cred.cr_uid;
+	*gid = cred.cr_ngroups > 0 ? cred.cr_groups[0] : -1;
+	return 0;
+#else
+	return -1;
+#endif
 }
 
 struct client *client_create(struct server *server, int client_fd) {
