@@ -9,8 +9,6 @@
 #include "compiler.h"
 #include "connection.h"
 
-#define CLEN (CMSG_LEN(MAX_FDS_OUT * sizeof(int)))
-
 ALWAYS_INLINE static uint32_t connection_buffer_mask(const uint32_t idx) {
 	return idx & (CONNECTION_BUFFER_SIZE - 1);
 }
@@ -134,8 +132,8 @@ static void connection_buffer_close_fds(struct connection_buffer *buffer) {
  */
 static void build_cmsg(struct connection_buffer *buffer, char *data, int *clen) {
 	size_t size = connection_buffer_size(buffer);
-	if (size > MAX_FDS_OUT * sizeof(int)) {
-		size = MAX_FDS_OUT * sizeof(int);
+	if (size > MAX_FDS * sizeof(int)) {
+		size = MAX_FDS * sizeof(int);
 	}
 
 	if (size <= 0) {
@@ -189,7 +187,7 @@ int connection_read(struct connection *connection) {
 	struct iovec iov[2];
 	connection_buffer_put_iov(&connection->in, iov, &count);
 
-	char cmsg[CLEN];
+	char cmsg[CMSG_LEN(CONNECTION_BUFFER_SIZE)];
 	struct msghdr msg = {
 		.msg_name = NULL,
 		.msg_namelen = 0,
@@ -227,7 +225,7 @@ int connection_flush(struct connection *connection) {
 		connection_buffer_get_iov(&connection->out, iov, &count);
 
 		int clen;
-		char cmsg[CLEN];
+		char cmsg[CMSG_LEN(CONNECTION_BUFFER_SIZE)];
 		build_cmsg(&connection->fds_out, cmsg, &clen);
 		struct msghdr msg = {
 			.msg_name = NULL,
@@ -269,7 +267,7 @@ int connection_put(struct connection *connection, const void *data, size_t count
 }
 
 int connection_put_fd(struct connection *connection, int fd) {
-	if (connection_buffer_size(&connection->fds_out) == MAX_FDS_OUT * sizeof fd) {
+	if (connection_buffer_size(&connection->fds_out) == MAX_FDS * sizeof fd) {
 		errno = EOVERFLOW;
 		return -1;
 	}

@@ -4,9 +4,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define CONNECTION_BUFFER_SIZE 1024
+#define CONNECTION_BUFFER_SIZE 256
 
-#define MAX_FDS_OUT 8
+#define MAX_FDS (CONNECTION_BUFFER_SIZE / sizeof(int))
 
 struct connection_buffer {
 	uint32_t head, tail;
