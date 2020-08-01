@@ -8,13 +8,19 @@
 
 struct client;
 
+enum seat_device_type {
+	SEAT_DEVICE_TYPE_NORMAL,
+	SEAT_DEVICE_TYPE_EVDEV,
+	SEAT_DEVICE_TYPE_DRM,
+};
+
 struct seat_device {
 	int device_id;
 	int fd;
 	int ref_cnt;
 	bool active;
 	char *path;
-	dev_t dev;
+	enum seat_device_type type;
 };
 
 struct seat {

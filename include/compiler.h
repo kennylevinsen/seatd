@@ -15,4 +15,6 @@
 #define ALWAYS_INLINE inline
 #endif
 
+#define STRLEN(s) ((sizeof(s) / sizeof(s[0])) - 1)
+
 #endif

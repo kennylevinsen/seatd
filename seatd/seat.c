@@ -141,6 +141,17 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		return NULL;
 	}
 
+	enum seat_device_type type;
+	if (path_is_evdev(sanitized_path)) {
+		type = SEAT_DEVICE_TYPE_EVDEV;
+	} else if (path_is_drm(sanitized_path)) {
+		type = SEAT_DEVICE_TYPE_DRM;
+	} else {
+		log_errorf("invalid path '%s'", sanitized_path);
+		errno = ENOENT;
+		return NULL;
+	}
+
 	int device_id = 1;
 	for (size_t idx = 0; idx < client->devices.length; idx++) {
 		struct seat_device *device = client->devices.items[idx];
@@ -164,39 +175,24 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		return NULL;
 	}
 
-	const char *prefix = "/dev/";
-	if (strncmp(prefix, sanitized_path, strlen(prefix)) != 0) {
-		log_errorf("invalid path '%s': expected device in /dev", sanitized_path);
-		errno = ENOENT;
-		return NULL;
-	}
-
 	int fd = open(sanitized_path, O_RDWR | O_NOCTTY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
 	if (fd == -1) {
 		log_errorf("could not open file: %s", strerror(errno));
 		return NULL;
 	}
 
-	struct stat st;
-	if (fstat(fd, &st) == -1) {
-		log_errorf("could not fstat: %s", strerror(errno));
-		close(fd);
-		errno = EACCES;
-		return NULL;
-	}
-
-	if (dev_is_drm(st.st_rdev)) {
+	switch (type) {
+	case SEAT_DEVICE_TYPE_DRM:
 		if (drm_set_master(fd) == -1) {
 			log_debugf("drm_set_master failed: %s", strerror(errno));
 		}
-	} else if (dev_is_evdev(st.st_rdev)) {
+		break;
+	case SEAT_DEVICE_TYPE_EVDEV:
 		// Nothing to do here
-	} else {
-		// Not a device type we want to share
-		log_errorf("disallowed device type for '%s': %ld", sanitized_path, st.st_rdev);
-		close(fd);
-		errno = EACCES;
-		return NULL;
+		break;
+	default:
+		log_error("invalid seat device type");
+		abort();
 	}
 
 	struct seat_device *device = calloc(1, sizeof(struct seat_device));
@@ -218,8 +214,8 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 	log_debugf("seat: %p, client: %p, path: '%s', device_id: %d", (void *)seat, (void *)client,
 		   path, device_id);
 
-	device->ref_cnt++;
-	device->dev = st.st_rdev;
+	device->ref_cnt = 1;
+	device->type = type;
 	device->fd = fd;
 	device->device_id = device_id;
 	device->active = true;
@@ -252,14 +248,20 @@ int seat_close_device(struct client *client, struct seat_device *seat_device) {
 	// The ref count hit zero, so destroy the device
 	list_del(&client->devices, idx);
 	if (seat_device->active && seat_device->fd != -1) {
-		if (dev_is_drm(seat_device->dev)) {
+		switch (seat_device->type) {
+		case SEAT_DEVICE_TYPE_DRM:
 			if (drm_drop_master(seat_device->fd) == -1) {
 				log_debugf("drm_drop_master failed: %s", strerror(errno));
 			}
-		} else if (dev_is_evdev(seat_device->dev)) {
+			break;
+		case SEAT_DEVICE_TYPE_EVDEV:
 			if (evdev_revoke(seat_device->fd) == -1) {
 				log_debugf("evdev_revoke failed: %s", strerror(errno));
 			}
+			break;
+		default:
+			log_error("invalid seat device type");
+			abort();
 		}
 		close(seat_device->fd);
 		seat_device->fd = -1;
@@ -277,17 +279,22 @@ static int seat_deactivate_device(struct client *client, struct seat_device *sea
 	if (!seat_device->active) {
 		return 0;
 	}
-	if (dev_is_drm(seat_device->dev)) {
+	switch (seat_device->type) {
+	case SEAT_DEVICE_TYPE_DRM:
 		if (drm_drop_master(seat_device->fd) == -1) {
+			log_debugf("drm_drop_master failed: %s", strerror(errno));
 			return -1;
 		}
-	} else if (dev_is_evdev(seat_device->dev)) {
+		break;
+	case SEAT_DEVICE_TYPE_EVDEV:
 		if (evdev_revoke(seat_device->fd) == -1) {
+			log_debugf("evdev_revoke failed: %s", strerror(errno));
 			return -1;
 		}
-	} else {
-		errno = EACCES;
-		return -1;
+		break;
+	default:
+		log_error("invalid seat device type");
+		abort();
 	}
 	seat_device->active = false;
 	return 0;
@@ -301,17 +308,21 @@ static int seat_activate_device(struct client *client, struct seat_device *seat_
 	if (seat_device->active) {
 		return 0;
 	}
-	if (dev_is_drm(seat_device->dev)) {
-		drm_set_master(seat_device->fd);
+	switch (seat_device->type) {
+	case SEAT_DEVICE_TYPE_DRM:
+		if (drm_set_master(seat_device->fd) == -1) {
+			log_debugf("drmset_master failed: %s", strerror(errno));
+		}
 		seat_device->active = true;
-	} else if (dev_is_evdev(seat_device->dev)) {
-		// We can't do anything here
+		break;
+	case SEAT_DEVICE_TYPE_EVDEV:
 		errno = EINVAL;
 		return -1;
-	} else {
-		errno = EACCES;
-		return -1;
+	default:
+		log_error("invalid seat device type");
+		abort();
 	}
+
 	return 0;
 }
 
