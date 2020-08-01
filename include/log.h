@@ -24,14 +24,14 @@ void _libseat_logf(enum libseat_log_level level, const char *fmt, ...) ATTRIB_PR
 
 #define log_infof(fmt, ...)                                                                    \
 	_libseat_logf(LIBSEAT_INFO, "[%s:%d] %s: " fmt, _LIBSEAT_FILENAME, __LINE__, __func__, \
-		      ##__VA_ARGS__)
+		      __VA_ARGS__)
 
 #define log_info(str) \
 	_libseat_logf(LIBSEAT_INFO, "[%s:%d] %s: %s", _LIBSEAT_FILENAME, __LINE__, __func__, str)
 
 #define log_errorf(fmt, ...)                                                                    \
 	_libseat_logf(LIBSEAT_ERROR, "[%s:%d] %s: " fmt, _LIBSEAT_FILENAME, __LINE__, __func__, \
-		      ##__VA_ARGS__)
+		      __VA_ARGS__)
 
 #define log_error(str) \
 	_libseat_logf(LIBSEAT_ERROR, "[%s:%d] %s: %s", _LIBSEAT_FILENAME, __LINE__, __func__, str)
@@ -39,7 +39,7 @@ void _libseat_logf(enum libseat_log_level level, const char *fmt, ...) ATTRIB_PR
 #ifdef DEBUG
 #define log_debugf(fmt, ...)                                                                    \
 	_libseat_logf(LIBSEAT_DEBUG, "[%s:%d] %s: " fmt, _LIBSEAT_FILENAME, __LINE__, __func__, \
-		      ##__VA_ARGS__)
+		      __VA_ARGS__)
 
 #define log_debug(str) \
 	_libseat_logf(LIBSEAT_DEBUG, "[%s:%d] %s: %s", _LIBSEAT_FILENAME, __LINE__, __func__, str)
