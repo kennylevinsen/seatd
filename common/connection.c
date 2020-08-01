@@ -6,22 +6,21 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "compiler.h"
 #include "connection.h"
 
-ALWAYS_INLINE static uint32_t connection_buffer_mask(const uint32_t idx) {
+static inline uint32_t connection_buffer_mask(const uint32_t idx) {
 	return idx & (CONNECTION_BUFFER_SIZE - 1);
 }
 
-ALWAYS_INLINE static uint32_t connection_buffer_size(const struct connection_buffer *b) {
+static inline uint32_t connection_buffer_size(const struct connection_buffer *b) {
 	return b->head - b->tail;
 }
 
-ALWAYS_INLINE static void connection_buffer_consume(struct connection_buffer *b, const size_t size) {
+static inline void connection_buffer_consume(struct connection_buffer *b, const size_t size) {
 	b->tail += size;
 }
 
-ALWAYS_INLINE static void connection_buffer_restore(struct connection_buffer *b, const size_t size) {
+static inline void connection_buffer_restore(struct connection_buffer *b, const size_t size) {
 	b->tail -= size;
 }
 
