@@ -1,8 +1,6 @@
 #ifndef _LIBSEAT_H
 #define _LIBSEAT_H
 
-#include <stdarg.h>
-
 /*
  * An opaque struct containing an opened seat, created by libseat_open-seat and
  * destroyed by libseat_close_seat.
