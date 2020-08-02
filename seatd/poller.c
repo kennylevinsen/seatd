@@ -10,50 +10,15 @@
 #include "list.h"
 #include "poller.h"
 
-struct basic_poller *global_poller = NULL;
+struct poller *global_poller = NULL;
 
-const struct poll_impl basic_poller_impl;
-const struct event_source_fd_impl basic_poller_fd_impl;
-const struct event_source_signal_impl basic_poller_signal_impl;
-
-struct basic_poller {
-	struct poller base;
-	struct list signals;
-	struct list new_signals;
-	struct list fds;
-	struct list new_fds;
-
-	struct pollfd *pollfds;
-	size_t pollfds_len;
-	bool dirty;
-	bool inpoll;
-};
-
-struct basic_poller_fd {
-	struct event_source_fd base;
-	struct basic_poller *poller;
-	bool killed;
-};
-
-struct basic_poller_signal {
-	struct event_source_signal base;
-	struct basic_poller *poller;
-	bool raised;
-	bool killed;
-};
-
-static struct basic_poller *basic_poller_from_poller(struct poller *base) {
-	assert(base->impl == &basic_poller_impl);
-	return (struct basic_poller *)base;
-}
-
-static struct poller *basic_poller_create(void) {
+struct poller *poller_create(void) {
 	if (global_poller != NULL) {
 		errno = EEXIST;
 		return NULL;
 	}
 
-	struct basic_poller *poller = calloc(1, sizeof(struct basic_poller));
+	struct poller *poller = calloc(1, sizeof(struct poller));
 	if (poller == NULL) {
 		errno = ENOMEM;
 		return NULL;
@@ -62,43 +27,41 @@ static struct poller *basic_poller_create(void) {
 	list_init(&poller->new_fds);
 	list_init(&poller->signals);
 	list_init(&poller->new_signals);
-	poller->base.impl = &basic_poller_impl;
 	global_poller = poller;
-	return (struct poller *)poller;
+	return poller;
 }
 
-static int destroy(struct poller *base) {
-	struct basic_poller *poller = basic_poller_from_poller(base);
+int poller_destroy(struct poller *poller) {
 	for (size_t idx = 0; idx < poller->fds.length; idx++) {
-		struct basic_poller_fd *bpfd = poller->fds.items[idx];
+		struct event_source_fd *bpfd = poller->fds.items[idx];
 		free(bpfd);
 	}
 	list_free(&poller->fds);
 	for (size_t idx = 0; idx < poller->new_fds.length; idx++) {
-		struct basic_poller_fd *bpfd = poller->new_fds.items[idx];
+		struct event_source_fd *bpfd = poller->new_fds.items[idx];
 		free(bpfd);
 	}
 	list_free(&poller->new_fds);
 	for (size_t idx = 0; idx < poller->signals.length; idx++) {
-		struct basic_poller_signal *bps = poller->signals.items[idx];
+		struct event_source_signal *bps = poller->signals.items[idx];
 
 		struct sigaction sa;
 		sa.sa_handler = SIG_DFL;
 		sigemptyset(&sa.sa_mask);
 		sa.sa_flags = 0;
-		sigaction(bps->base.signal, &sa, NULL);
+		sigaction(bps->signal, &sa, NULL);
 
 		free(bps);
 	}
 	list_free(&poller->signals);
 	for (size_t idx = 0; idx < poller->new_signals.length; idx++) {
-		struct basic_poller_signal *bps = poller->new_signals.items[idx];
+		struct event_source_signal *bps = poller->new_signals.items[idx];
 
 		struct sigaction sa;
 		sa.sa_handler = SIG_DFL;
 		sigemptyset(&sa.sa_mask);
 		sa.sa_flags = 0;
-		sigaction(bps->base.signal, &sa, NULL);
+		sigaction(bps->signal, &sa, NULL);
 
 		free(bps);
 	}
@@ -135,7 +98,7 @@ static uint32_t poll_mask_to_event_mask(int poll_mask) {
 	return event_mask;
 }
 
-static int regenerate_pollfds(struct basic_poller *poller) {
+static int regenerate_pollfds(struct poller *poller) {
 	if (poller->pollfds_len != poller->fds.length) {
 		struct pollfd *fds = calloc(poller->fds.length, sizeof(struct pollfd));
 		if (fds == NULL) {
@@ -147,29 +110,26 @@ static int regenerate_pollfds(struct basic_poller *poller) {
 	}
 
 	for (size_t idx = 0; idx < poller->fds.length; idx++) {
-		struct basic_poller_fd *bpfd = poller->fds.items[idx];
+		struct event_source_fd *bpfd = poller->fds.items[idx];
 		poller->pollfds[idx] = (struct pollfd){
-			.fd = bpfd->base.fd,
-			.events = event_mask_to_poll_mask(bpfd->base.mask),
+			.fd = bpfd->fd,
+			.events = event_mask_to_poll_mask(bpfd->mask),
 		};
 	}
 
 	return 0;
 }
 
-static struct event_source_fd *add_fd(struct poller *base, int fd, uint32_t mask,
+struct event_source_fd *poller_add_fd(struct poller *poller, int fd, uint32_t mask,
 				      event_source_fd_func_t func, void *data) {
-	struct basic_poller *poller = basic_poller_from_poller(base);
-
-	struct basic_poller_fd *bpfd = calloc(1, sizeof(struct basic_poller_fd));
+	struct event_source_fd *bpfd = calloc(1, sizeof(struct event_source_fd));
 	if (bpfd == NULL) {
 		return NULL;
 	}
-	bpfd->base.impl = &basic_poller_fd_impl;
-	bpfd->base.fd = fd;
-	bpfd->base.mask = mask;
-	bpfd->base.data = data;
-	bpfd->base.func = func;
+	bpfd->fd = fd;
+	bpfd->mask = mask;
+	bpfd->data = data;
+	bpfd->func = func;
 	bpfd->poller = poller;
 	poller->dirty = true;
 	if (poller->inpoll) {
@@ -181,9 +141,9 @@ static struct event_source_fd *add_fd(struct poller *base, int fd, uint32_t mask
 	return (struct event_source_fd *)bpfd;
 }
 
-static int fd_destroy(struct event_source_fd *event_source) {
-	struct basic_poller_fd *bpfd = (struct basic_poller_fd *)event_source;
-	struct basic_poller *poller = bpfd->poller;
+int event_source_fd_destroy(struct event_source_fd *event_source) {
+	struct event_source_fd *bpfd = (struct event_source_fd *)event_source;
+	struct poller *poller = bpfd->poller;
 	int idx = list_find(&poller->fds, event_source);
 	if (idx == -1) {
 		return -1;
@@ -199,9 +159,9 @@ static int fd_destroy(struct event_source_fd *event_source) {
 	return 0;
 }
 
-static int fd_update(struct event_source_fd *event_source, uint32_t mask) {
-	struct basic_poller_fd *bpfd = (struct basic_poller_fd *)event_source;
-	struct basic_poller *poller = bpfd->poller;
+int event_source_fd_update(struct event_source_fd *event_source, uint32_t mask) {
+	struct event_source_fd *bpfd = (struct event_source_fd *)event_source;
+	struct poller *poller = bpfd->poller;
 	event_source->mask = mask;
 
 	poller->dirty = true;
@@ -217,34 +177,32 @@ static void signal_handler(int sig) {
 	}
 
 	for (size_t idx = 0; idx < global_poller->signals.length; idx++) {
-		struct basic_poller_signal *bps = global_poller->signals.items[idx];
-		if (bps->base.signal == sig) {
+		struct event_source_signal *bps = global_poller->signals.items[idx];
+		if (bps->signal == sig) {
 			bps->raised = true;
 		}
 	}
 }
 
-static struct event_source_signal *add_signal(struct poller *base, int signal,
+struct event_source_signal *poller_add_signal(struct poller *poller, int signal,
 					      event_source_signal_func_t func, void *data) {
-	struct basic_poller *poller = basic_poller_from_poller(base);
 
-	struct basic_poller_signal *bps = calloc(1, sizeof(struct basic_poller_signal));
+	struct event_source_signal *bps = calloc(1, sizeof(struct event_source_signal));
 	if (bps == NULL) {
 		return NULL;
 	}
 
 	int refcnt = 0;
 	for (size_t idx = 0; idx < poller->signals.length; idx++) {
-		struct basic_poller_signal *bps = poller->signals.items[idx];
-		if (bps->base.signal == signal) {
+		struct event_source_signal *bps = poller->signals.items[idx];
+		if (bps->signal == signal) {
 			refcnt++;
 		}
 	}
 
-	bps->base.impl = &basic_poller_signal_impl;
-	bps->base.signal = signal;
-	bps->base.data = data;
-	bps->base.func = func;
+	bps->signal = signal;
+	bps->data = data;
+	bps->func = func;
 	bps->poller = poller;
 
 	if (refcnt == 0) {
@@ -264,9 +222,9 @@ static struct event_source_signal *add_signal(struct poller *base, int signal,
 	return (struct event_source_signal *)bps;
 }
 
-static int signal_destroy(struct event_source_signal *event_source) {
-	struct basic_poller_signal *bps = (struct basic_poller_signal *)event_source;
-	struct basic_poller *poller = bps->poller;
+int event_source_signal_destroy(struct event_source_signal *event_source) {
+	struct event_source_signal *bps = (struct event_source_signal *)event_source;
+	struct poller *poller = bps->poller;
 
 	int idx = list_find(&poller->signals, event_source);
 	if (idx == -1) {
@@ -275,8 +233,8 @@ static int signal_destroy(struct event_source_signal *event_source) {
 
 	int refcnt = 0;
 	for (size_t idx = 0; idx < poller->signals.length; idx++) {
-		struct basic_poller_signal *b = poller->signals.items[idx];
-		if (b->base.signal == bps->base.signal) {
+		struct event_source_signal *b = poller->signals.items[idx];
+		if (b->signal == bps->signal) {
 			refcnt++;
 		}
 	}
@@ -286,7 +244,7 @@ static int signal_destroy(struct event_source_signal *event_source) {
 		sa.sa_handler = SIG_DFL;
 		sigemptyset(&sa.sa_mask);
 		sa.sa_flags = 0;
-		sigaction(bps->base.signal, &sa, NULL);
+		sigaction(bps->signal, &sa, NULL);
 	}
 
 	if (poller->inpoll) {
@@ -298,9 +256,7 @@ static int signal_destroy(struct event_source_signal *event_source) {
 	return 0;
 }
 
-static int basic_poller_poll(struct poller *base) {
-	struct basic_poller *poller = basic_poller_from_poller(base);
-
+int poller_poll(struct poller *poller) {
 	if (poll(poller->pollfds, poller->fds.length, -1) == -1 && errno != EINTR) {
 		return -1;
 	}
@@ -312,24 +268,23 @@ static int basic_poller_poll(struct poller *base) {
 		if (revents == 0) {
 			continue;
 		}
-		struct basic_poller_fd *bpfd = poller->fds.items[idx];
-		bpfd->base.func(poller->pollfds[idx].fd, poll_mask_to_event_mask(revents),
-				bpfd->base.data);
+		struct event_source_fd *bpfd = poller->fds.items[idx];
+		bpfd->func(poller->pollfds[idx].fd, poll_mask_to_event_mask(revents), bpfd->data);
 	}
 
 	for (size_t idx = 0; idx < poller->signals.length; idx++) {
-		struct basic_poller_signal *bps = poller->signals.items[idx];
+		struct event_source_signal *bps = poller->signals.items[idx];
 		if (!bps->raised) {
 			continue;
 		}
-		bps->base.func(bps->base.signal, bps->base.data);
+		bps->func(bps->signal, bps->data);
 		bps->raised = false;
 	}
 
 	poller->inpoll = false;
 
 	for (size_t idx = 0; idx < poller->fds.length; idx++) {
-		struct basic_poller_fd *bpfd = poller->fds.items[idx];
+		struct event_source_fd *bpfd = poller->fds.items[idx];
 		if (!bpfd->killed) {
 			continue;
 		}
@@ -340,7 +295,7 @@ static int basic_poller_poll(struct poller *base) {
 	}
 
 	for (size_t idx = 0; idx < poller->signals.length; idx++) {
-		struct basic_poller_signal *bps = poller->signals.items[idx];
+		struct event_source_signal *bps = poller->signals.items[idx];
 		if (!bps->killed) {
 			continue;
 		}
@@ -367,20 +322,3 @@ static int basic_poller_poll(struct poller *base) {
 
 	return 0;
 }
-
-const struct event_source_fd_impl basic_poller_fd_impl = {
-	.update = fd_update,
-	.destroy = fd_destroy,
-};
-
-const struct event_source_signal_impl basic_poller_signal_impl = {
-	.destroy = signal_destroy,
-};
-
-const struct poll_impl basic_poller_impl = {
-	.create = basic_poller_create,
-	.destroy = destroy,
-	.add_fd = add_fd,
-	.add_signal = add_signal,
-	.poll = basic_poller_poll,
-};

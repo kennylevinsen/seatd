@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "list.h"
+
 struct poller;
 struct event_source_fd;
 struct event_source_signal;
@@ -30,7 +32,7 @@ struct event_source_fd_impl {
 };
 
 /**
- * The fd poller base class. This must be created by poller_add_fd.
+ * The fd poller class. This must be created by poller_add_fd.
  */
 struct event_source_fd {
 	const struct event_source_fd_impl *impl;
@@ -39,6 +41,9 @@ struct event_source_fd {
 	int fd;
 	uint32_t mask;
 	void *data;
+
+	struct poller *poller;
+	bool killed;
 };
 
 /**
@@ -64,7 +69,7 @@ struct event_source_signal_impl {
 };
 
 /*
- * The signal poller base class. This must be created by poller_add_signal.
+ * The signal poller class. This must be created by poller_add_signal.
  */
 struct event_source_signal {
 	const struct event_source_signal_impl *impl;
@@ -72,6 +77,10 @@ struct event_source_signal {
 
 	int signal;
 	void *data;
+
+	struct poller *poller;
+	bool raised;
+	bool killed;
 };
 
 /**
@@ -98,7 +107,15 @@ struct poll_impl {
  * The poller base class. This must be created by poller_create.
  */
 struct poller {
-	const struct poll_impl *impl;
+	struct list signals;
+	struct list new_signals;
+	struct list fds;
+	struct list new_fds;
+
+	struct pollfd *pollfds;
+	size_t pollfds_len;
+	bool dirty;
+	bool inpoll;
 };
 
 /**
