@@ -51,7 +51,7 @@ size_t list_find(struct list *list, const void *item) {
 	return -1;
 }
 
-void list_concat(struct list *list, struct list *source) {
+void list_concat(struct list *list, const struct list *source) {
 	if (list->length + source->length > list->capacity) {
 		while (list->length + source->length > list->capacity) {
 			list->capacity *= 2;

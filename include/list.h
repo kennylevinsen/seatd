@@ -14,7 +14,7 @@ void list_free(struct list *list);
 void list_add(struct list *list, void *item);
 void list_insert(struct list *list, size_t index, void *item);
 void list_del(struct list *list, size_t index);
-void list_concat(struct list *list, struct list *source);
+void list_concat(struct list *list, const struct list *source);
 void list_truncate(struct list *list);
 void *list_pop_front(struct list *list);
 void *list_pop_back(struct list *list);
