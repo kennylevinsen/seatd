@@ -1,5 +1,5 @@
-#ifndef _VISIBILITY_H
-#define _VISIBILITY_H
+#ifndef _COMPILER_H
+#define _COMPILER_H
 
 #ifdef __GNUC__
 #define ATTRIB_PRINTF(start, end) __attribute__((format(printf, start, end)))
