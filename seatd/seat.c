@@ -70,10 +70,11 @@ int seat_add_client(struct seat *seat, struct client *client) {
 	return 0;
 }
 
-int seat_remove_client(struct seat *seat, struct client *client) {
-	assert(seat);
+int seat_remove_client(struct client *client) {
 	assert(client);
-	assert(client->seat == seat);
+	assert(client->seat);
+
+	struct seat *seat = client->seat;
 
 	// We must first remove the client to avoid reactivation
 	bool found = false;
@@ -95,12 +96,12 @@ int seat_remove_client(struct seat *seat, struct client *client) {
 	}
 
 	while (client->devices.length > 0) {
-		struct seat_device *device = client->devices.items[client->devices.length - 1];
+		struct seat_device *device = list_pop_back(&client->devices);
 		seat_close_device(client, device);
 	}
 
 	if (seat->active_client == client) {
-		seat_close_client(seat, client);
+		seat_close_client(client);
 	}
 
 	client->seat = NULL;
@@ -131,6 +132,11 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 	struct seat *seat = client->seat;
 
 	if (client != seat->active_client) {
+		errno = EPERM;
+		return NULL;
+	}
+
+	if (client->pending_disable) {
 		errno = EPERM;
 		return NULL;
 	}
@@ -375,7 +381,7 @@ int seat_open_client(struct seat *seat, struct client *client) {
 
 	seat->active_client = client;
 	if (client_enable_seat(client) == -1) {
-		seat_remove_client(seat, client);
+		seat_remove_client(client);
 		return -1;
 	}
 
@@ -383,9 +389,37 @@ int seat_open_client(struct seat *seat, struct client *client) {
 	return 0;
 }
 
-int seat_close_client(struct seat *seat, struct client *client) {
-	assert(seat);
+int seat_close_client(struct client *client) {
 	assert(client);
+	assert(client->seat);
+
+	struct seat *seat = client->seat;
+
+	if (seat->active_client != client) {
+		log_error("client not active");
+		errno = EBUSY;
+		return -1;
+	}
+
+	while (client->devices.length > 0) {
+		struct seat_device *device = list_pop_back(&client->devices);
+		if (seat_close_device(client, device) == -1) {
+			log_errorf("unable to close '%s': %s", device->path, strerror(errno));
+		}
+	}
+
+	client->pending_disable = false;
+	seat->active_client = NULL;
+	seat_activate(seat);
+	log_debug("closed client");
+	return 0;
+}
+
+static int seat_disable_client(struct client *client) {
+	assert(client);
+	assert(client->seat);
+
+	struct seat *seat = client->seat;
 
 	if (seat->active_client != client) {
 		log_error("client not active");
@@ -406,37 +440,62 @@ int seat_close_client(struct seat *seat, struct client *client) {
 
 	log_debugf("deactivated %zd devices", client->devices.length);
 
-	seat->active_client = NULL;
-
-	if (seat->vt_bound && seat->vt_pending_ack) {
-		log_debug("acking pending VT switch");
-		seat->vt_pending_ack = false;
-		assert(seat->curttyfd != -1);
-		terminal_set_process_switching(seat->curttyfd, true);
-		terminal_set_keyboard(seat->curttyfd, true);
-		terminal_set_graphics(seat->curttyfd, false);
-		terminal_ack_switch(seat->curttyfd);
-		close(seat->curttyfd);
-		seat->curttyfd = -1;
-		return 0;
+	client->pending_disable = true;
+	if (client_disable_seat(seat->active_client) == -1) {
+		seat_remove_client(client);
+		return -1;
 	}
 
-	seat_activate(seat);
-	log_debug("closed client");
+	log_debug("disabling client");
 	return 0;
 }
 
-int seat_set_next_session(struct seat *seat, int session) {
-	assert(seat);
+int seat_ack_disable_client(struct client *client) {
+	assert(client);
+	assert(client->seat);
+
+	struct seat *seat = client->seat;
+
+	if (seat->active_client != client || !client->pending_disable) {
+		log_error("client not active or not pending disable");
+		errno = EBUSY;
+		return -1;
+	}
+
+	client->pending_disable = false;
+	seat->active_client = NULL;
+	seat_activate(seat);
+	log_debug("disabled client");
+	return 0;
+}
+
+int seat_set_next_session(struct client *client, int session) {
+	assert(client);
+	assert(client->seat);
+
+	struct seat *seat = client->seat;
+
+	if (seat->active_client != client || client->pending_disable) {
+		log_error("client not active or pending disable");
+		errno = EPERM;
+		return -1;
+	}
+
+	if (session == client_get_session(client)) {
+		log_info("requested session is already active");
+		return 0;
+	}
 
 	// Check if the session number is valid
 	if (session <= 0) {
+		log_errorf("invalid session value: %d", session);
 		errno = EINVAL;
 		return -1;
 	}
 
 	// Check if a switch is already queued
 	if (seat->next_vt > 0 || seat->next_client != NULL) {
+		log_info("switch is already queued");
 		return 0;
 	}
 
@@ -463,10 +522,7 @@ int seat_set_next_session(struct seat *seat, int session) {
 		return -1;
 	}
 
-	if (client_disable_seat(seat->active_client) == -1) {
-		seat_remove_client(seat, seat->active_client);
-	}
-
+	seat_disable_client(seat->active_client);
 	return 0;
 }
 
@@ -484,6 +540,20 @@ int seat_activate(struct seat *seat) {
 		if (ttyfd == -1) {
 			log_errorf("unable to open tty0: %s", strerror(errno));
 			return -1;
+		}
+
+		// If we need to ack a switch, do that
+		if (seat->vt_pending_ack) {
+			log_info("acking pending VT switch");
+			seat->vt_pending_ack = false;
+			if (seat->curttyfd != -1) {
+				terminal_set_process_switching(seat->curttyfd, false);
+				terminal_set_keyboard(seat->curttyfd, true);
+				terminal_set_graphics(seat->curttyfd, false);
+				close(seat->curttyfd);
+				seat->curttyfd = -1;
+			}
+			return 0;
 		}
 
 		// If we're asked to do a simple VT switch, do that
@@ -568,16 +638,13 @@ int seat_prepare_vt_switch(struct seat *seat) {
 
 	if (seat->vt_pending_ack) {
 		log_info("impatient user, killing session to force pending switch");
-		seat_close_client(seat, seat->active_client);
+		seat_close_client(seat->active_client);
 		return 0;
 	}
 
 	log_debug("delaying VT switch acknowledgement");
 
 	seat->vt_pending_ack = true;
-	if (client_disable_seat(seat->active_client) == -1) {
-		seat_remove_client(seat, seat->active_client);
-	}
-
+	seat_disable_client(seat->active_client);
 	return 0;
 }

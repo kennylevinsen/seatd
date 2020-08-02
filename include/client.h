@@ -21,6 +21,7 @@ struct client {
 
 	struct seat *seat;
 	int seat_vt;
+	bool pending_disable;
 
 	struct list devices;
 };

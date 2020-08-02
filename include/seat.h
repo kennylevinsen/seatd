@@ -39,15 +39,16 @@ struct seat *seat_create(const char *name, bool vt_bound);
 void seat_destroy(struct seat *seat);
 
 int seat_add_client(struct seat *seat, struct client *client);
-int seat_remove_client(struct seat *seat, struct client *client);
+int seat_remove_client(struct client *client);
 int seat_open_client(struct seat *seat, struct client *client);
-int seat_close_client(struct seat *seat, struct client *client);
+int seat_close_client(struct client *client);
+int seat_ack_disable_client(struct client *client);
 
 struct seat_device *seat_open_device(struct client *client, const char *path);
 int seat_close_device(struct client *client, struct seat_device *seat_device);
 struct seat_device *seat_find_device(struct client *client, int device_id);
 
-int seat_set_next_session(struct seat *seat, int session);
+int seat_set_next_session(struct client *client, int session);
 int seat_activate(struct seat *seat);
 int seat_prepare_vt_switch(struct seat *seat);
 

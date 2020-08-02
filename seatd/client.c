@@ -79,7 +79,7 @@ void client_kill(struct client *client) {
 		client->connection.fd = -1;
 	};
 	if (client->seat != NULL) {
-		seat_remove_client(client->seat, client);
+		seat_remove_client(client);
 		client->seat = NULL;
 	}
 }
@@ -89,7 +89,7 @@ void client_destroy(struct client *client) {
 	client->server = NULL;
 	if (client->seat != NULL) {
 		// This should also close and remove all devices
-		seat_remove_client(client->seat, client);
+		seat_remove_client(client);
 		client->seat = NULL;
 	}
 	if (client->event_source != NULL) {
@@ -185,7 +185,7 @@ static int handle_close_seat(struct client *client) {
 		return -1;
 	}
 
-	if (seat_remove_client(client->seat, client) == -1) {
+	if (seat_remove_client(client) == -1) {
 		log_error("unable to remove client from seat");
 		return -1;
 	}
@@ -291,24 +291,7 @@ static int handle_switch_session(struct client *client, int session) {
 		return -1;
 	}
 
-	struct seat *seat = client->seat;
-	if (seat->active_client != client) {
-		log_info("refusing to switch session: client requesting switch is not active");
-		errno = EPERM;
-		goto error;
-	}
-	if (session <= 0) {
-		log_errorf("invalid session: %d", session);
-		errno = EINVAL;
-		goto error;
-	}
-
-	if (client_get_session(client) == session) {
-		return 0;
-	}
-
-	if (seat_set_next_session(seat, session) == -1) {
-		log_infof("could not queue session switch: %s", strerror(errno));
+	if (seat_set_next_session(client, session) == -1) {
 		goto error;
 	}
 
@@ -331,7 +314,7 @@ static int handle_disable_seat(struct client *client) {
 		goto error;
 	}
 
-	if (seat_close_client(seat, client) == -1) {
+	if (seat_ack_disable_client(client) == -1) {
 		goto error;
 	}
 
