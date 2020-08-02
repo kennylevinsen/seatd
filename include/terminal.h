@@ -6,8 +6,6 @@
 int terminal_open(int vt);
 
 int terminal_set_process_switching(int fd, bool enable);
-int terminal_setup(int vt);
-int terminal_teardown(int vt);
 int terminal_current_vt(int fd);
 int terminal_switch_vt(int fd, int vt);
 int terminal_ack_switch(int fd);
