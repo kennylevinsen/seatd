@@ -32,6 +32,7 @@ struct seat {
 	bool vt_bound;
 	bool vt_pending_ack;
 	int next_vt;
+	int curttyfd;
 };
 
 struct seat *seat_create(const char *name, bool vt_bound);

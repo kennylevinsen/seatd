@@ -25,13 +25,12 @@ struct seat *seat_create(const char *seat_name, bool vt_bound) {
 	}
 	list_init(&seat->clients);
 	seat->vt_bound = vt_bound;
-
+	seat->curttyfd = -1;
 	seat->seat_name = strdup(seat_name);
 	if (seat->seat_name == NULL) {
 		free(seat);
 		return NULL;
 	}
-
 	log_debugf("created seat '%s' (vt_bound: %d)", seat_name, vt_bound);
 	return seat;
 }
@@ -44,6 +43,7 @@ void seat_destroy(struct seat *seat) {
 		assert(client->seat);
 		client_kill(client);
 	}
+	assert(seat->curttyfd == -1);
 
 	free(seat->seat_name);
 	free(seat);
@@ -331,7 +331,18 @@ int seat_open_client(struct seat *seat, struct client *client) {
 	assert(client);
 
 	if (seat->vt_bound && client->seat_vt == 0) {
-		client->seat_vt = terminal_current_vt();
+		int tty0fd = terminal_open(0);
+		if (tty0fd == -1) {
+			log_errorf("unable to open tty0: %s", strerror(errno));
+			return -1;
+		}
+		client->seat_vt = terminal_current_vt(tty0fd);
+		close(tty0fd);
+		if (client->seat_vt == -1) {
+			log_errorf("unable to get current VT for client: %s", strerror(errno));
+			client->seat_vt = 0;
+			return -1;
+		}
 	}
 
 	if (seat->active_client != NULL) {
@@ -341,8 +352,16 @@ int seat_open_client(struct seat *seat, struct client *client) {
 	}
 
 	if (seat->vt_bound) {
-		terminal_setup(client->seat_vt);
-		terminal_set_keyboard(client->seat_vt, false);
+		int ttyfd = terminal_open(client->seat_vt);
+		if (ttyfd == -1) {
+			log_errorf("unable to open tty for vt %d: %s", client->seat_vt,
+				   strerror(errno));
+			return -1;
+		}
+		terminal_set_process_switching(ttyfd, true);
+		terminal_set_keyboard(ttyfd, false);
+		terminal_set_graphics(ttyfd, true);
+		seat->curttyfd = ttyfd;
 	}
 
 	for (size_t idx = 0; idx < client->devices.length; idx++) {
@@ -387,17 +406,19 @@ int seat_close_client(struct seat *seat, struct client *client) {
 
 	log_debugf("deactivated %zd devices", client->devices.length);
 
-	int vt = seat->active_client->seat_vt;
 	seat->active_client = NULL;
 
-	if (seat->vt_bound) {
-		if (seat->vt_pending_ack) {
-			log_debug("acking pending VT switch");
-			seat->vt_pending_ack = false;
-			terminal_teardown(vt);
-			terminal_ack_switch();
-			return 0;
-		}
+	if (seat->vt_bound && seat->vt_pending_ack) {
+		log_debug("acking pending VT switch");
+		seat->vt_pending_ack = false;
+		assert(seat->curttyfd != -1);
+		terminal_set_process_switching(seat->curttyfd, true);
+		terminal_set_keyboard(seat->curttyfd, true);
+		terminal_set_graphics(seat->curttyfd, false);
+		terminal_ack_switch(seat->curttyfd);
+		close(seat->curttyfd);
+		seat->curttyfd = -1;
+		return 0;
 	}
 
 	seat_activate(seat);
@@ -457,17 +478,31 @@ int seat_activate(struct seat *seat) {
 		return 0;
 	}
 
-	// If we're asked to do a simple VT switch, do that
-	if (seat->vt_bound && seat->next_vt > 0) {
-		log_info("executing VT switch");
-		terminal_switch_vt(seat->next_vt);
-		seat->next_vt = 0;
-		return 0;
-	}
-
 	int vt = -1;
 	if (seat->vt_bound) {
-		vt = terminal_current_vt();
+		int ttyfd = terminal_open(0);
+		if (ttyfd == -1) {
+			log_errorf("unable to open tty0: %s", strerror(errno));
+			return -1;
+		}
+
+		// If we're asked to do a simple VT switch, do that
+		if (seat->next_vt > 0) {
+			log_info("executing VT switch");
+			terminal_switch_vt(ttyfd, seat->next_vt);
+			seat->next_vt = 0;
+			close(ttyfd);
+			return 0;
+		}
+
+		// We'll need the VT below
+		vt = terminal_current_vt(ttyfd);
+		if (vt == -1) {
+			log_errorf("unable to get vt: %s", strerror(errno));
+			close(ttyfd);
+			return -1;
+		}
+		close(ttyfd);
 	}
 
 	// Try to pick a client for activation
@@ -492,15 +527,25 @@ int seat_activate(struct seat *seat) {
 	if (next_client == NULL) {
 		// No suitable client found
 		log_info("no client suitable for activation");
-		if (seat->vt_bound) {
-			terminal_teardown(vt);
+		if (seat->vt_bound && seat->curttyfd != -1) {
+			terminal_set_process_switching(seat->curttyfd, false);
+			terminal_set_keyboard(seat->curttyfd, true);
+			terminal_set_graphics(seat->curttyfd, false);
+			close(seat->curttyfd);
+			seat->curttyfd = -1;
 		}
 		return -1;
 	}
 
 	log_info("activating next client");
 	if (seat->vt_bound && next_client->seat_vt != vt) {
-		terminal_switch_vt(next_client->seat_vt);
+		int ttyfd = terminal_open(0);
+		if (ttyfd == -1) {
+			log_errorf("unable to open tty0: %s", strerror(errno));
+			return -1;
+		}
+		terminal_switch_vt(ttyfd, next_client->seat_vt);
+		close(ttyfd);
 	}
 
 	return seat_open_client(seat, next_client);
@@ -511,7 +556,13 @@ int seat_prepare_vt_switch(struct seat *seat) {
 
 	if (seat->active_client == NULL) {
 		log_info("no active client, performing switch immediately");
-		terminal_ack_switch();
+		int tty0fd = terminal_open(0);
+		if (tty0fd == -1) {
+			log_errorf("unable to open tty0: %s", strerror(errno));
+			return -1;
+		}
+		terminal_ack_switch(tty0fd);
+		close(tty0fd);
 		return 0;
 	}
 
