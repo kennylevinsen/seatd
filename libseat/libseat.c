@@ -32,7 +32,7 @@ static const struct named_backend impls[] = {
 #error At least one backend must be enabled
 #endif
 
-LIBSEAT_EXPORT struct libseat *libseat_open_seat(struct libseat_seat_listener *listener, void *data) {
+struct libseat *libseat_open_seat(struct libseat_seat_listener *listener, void *data) {
 	if (listener == NULL) {
 		errno = EINVAL;
 		return NULL;
@@ -70,42 +70,42 @@ LIBSEAT_EXPORT struct libseat *libseat_open_seat(struct libseat_seat_listener *l
 	return backend;
 }
 
-LIBSEAT_EXPORT int libseat_disable_seat(struct libseat *seat) {
+int libseat_disable_seat(struct libseat *seat) {
 	assert(seat && seat->impl);
 	return seat->impl->disable_seat(seat);
 }
 
-LIBSEAT_EXPORT int libseat_close_seat(struct libseat *seat) {
+int libseat_close_seat(struct libseat *seat) {
 	assert(seat && seat->impl);
 	return seat->impl->close_seat(seat);
 }
 
-LIBSEAT_EXPORT const char *libseat_seat_name(struct libseat *seat) {
+const char *libseat_seat_name(struct libseat *seat) {
 	assert(seat && seat->impl);
 	return seat->impl->seat_name(seat);
 }
 
-LIBSEAT_EXPORT int libseat_open_device(struct libseat *seat, const char *path, int *fd) {
+int libseat_open_device(struct libseat *seat, const char *path, int *fd) {
 	assert(seat && seat->impl);
 	return seat->impl->open_device(seat, path, fd);
 }
 
-LIBSEAT_EXPORT int libseat_close_device(struct libseat *seat, int device_id) {
+int libseat_close_device(struct libseat *seat, int device_id) {
 	assert(seat && seat->impl);
 	return seat->impl->close_device(seat, device_id);
 }
 
-LIBSEAT_EXPORT int libseat_get_fd(struct libseat *seat) {
+int libseat_get_fd(struct libseat *seat) {
 	assert(seat && seat->impl);
 	return seat->impl->get_fd(seat);
 }
 
-LIBSEAT_EXPORT int libseat_dispatch(struct libseat *seat, int timeout) {
+int libseat_dispatch(struct libseat *seat, int timeout) {
 	assert(seat && seat->impl);
 	return seat->impl->dispatch(seat, timeout);
 }
 
-LIBSEAT_EXPORT int libseat_switch_session(struct libseat *seat, int session) {
+int libseat_switch_session(struct libseat *seat, int session) {
 	assert(seat && seat->impl);
 	return seat->impl->switch_session(seat, session);
 }

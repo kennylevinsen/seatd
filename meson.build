@@ -25,7 +25,6 @@ add_project_arguments(
 		'-Wno-unused-command-line-argument',
 		'-Wvla',
 		'-Wl,--exclude-libs=ALL',
-		'-fvisibility=hidden',
 		'-D_XOPEN_SOURCE=700',
 		'-D__BSD_VISIBLE',
 	],
@@ -128,12 +127,16 @@ private_lib = static_library(
 	include_directories: [include_directories('.', 'include')],
 )
 
+symbols_file = 'libseat/libseat.syms'
+symbols_flag = '-Wl,--version-script,@0@/@1@'.format(meson.current_source_dir(), symbols_file)
 lib = library(
 	'seat', # This results in the library being called 'libseat'
 	[ 'libseat/libseat.c' ],
 	link_with: private_lib,
 	include_directories: [include_directories('.', 'include')],
 	install: true,
+	link_args: symbols_flag,
+	link_depends: symbols_file,
 )
 
 install_headers('include/libseat.h')
