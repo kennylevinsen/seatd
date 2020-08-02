@@ -27,23 +27,18 @@ static int server_handle_vt_rel(int signal, void *data);
 static int server_handle_kill(int signal, void *data);
 
 struct server *server_create(void) {
-	struct poller *poller = poller_create();
-	if (poller == NULL) {
-		log_error("could not create poller");
-		return NULL;
-	}
 	struct server *server = calloc(1, sizeof(struct server));
 	if (server == NULL) {
 		return NULL;
 	}
-	server->poller = poller;
+	poller_init(&server->poller);
 
 	list_init(&server->seats);
 
-	if (poller_add_signal(poller, SIGUSR1, server_handle_vt_rel, server) == NULL ||
-	    poller_add_signal(poller, SIGUSR2, server_handle_vt_acq, server) == NULL ||
-	    poller_add_signal(poller, SIGINT, server_handle_kill, server) == NULL ||
-	    poller_add_signal(poller, SIGTERM, server_handle_kill, server) == NULL) {
+	if (poller_add_signal(&server->poller, SIGUSR1, server_handle_vt_rel, server) == NULL ||
+	    poller_add_signal(&server->poller, SIGUSR2, server_handle_vt_acq, server) == NULL ||
+	    poller_add_signal(&server->poller, SIGINT, server_handle_kill, server) == NULL ||
+	    poller_add_signal(&server->poller, SIGTERM, server_handle_kill, server) == NULL) {
 		server_destroy(server);
 		return NULL;
 	}
@@ -69,10 +64,7 @@ void server_destroy(struct server *server) {
 		seat_destroy(seat);
 	}
 	list_free(&server->seats);
-	if (server->poller != NULL) {
-		poller_destroy(server->poller);
-		server->poller = NULL;
-	}
+	poller_finish(&server->poller);
 	free(server);
 }
 
@@ -152,7 +144,7 @@ static int server_handle_connection(int fd, uint32_t mask, void *data) {
 		}
 
 		struct client *client = client_create(server, new_fd);
-		client->event_source = poller_add_fd(server->poller, new_fd, EVENT_READABLE,
+		client->event_source = poller_add_fd(&server->poller, new_fd, EVENT_READABLE,
 						     client_handle_connection, client);
 		if (client->event_source == NULL) {
 			client_destroy(client);
@@ -174,7 +166,7 @@ int server_add_client(struct server *server, int fd) {
 
 	struct client *client = client_create(server, fd);
 	client->event_source =
-		poller_add_fd(server->poller, fd, EVENT_READABLE, client_handle_connection, client);
+		poller_add_fd(&server->poller, fd, EVENT_READABLE, client_handle_connection, client);
 	if (client->event_source == NULL) {
 		client_destroy(client);
 		log_errorf("could not add client socket to poller: %s", strerror(errno));
@@ -222,7 +214,7 @@ int server_listen(struct server *server, const char *path) {
 	} else {
 		log_errorf("could not get video group: %s", strerror(errno));
 	}
-	if (poller_add_fd(server->poller, fd, EVENT_READABLE, server_handle_connection, server) ==
+	if (poller_add_fd(&server->poller, fd, EVENT_READABLE, server_handle_connection, server) ==
 	    NULL) {
 		log_errorf("could not add socket to poller: %s", strerror(errno));
 		close(fd);

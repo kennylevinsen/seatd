@@ -122,13 +122,17 @@ struct poller {
  * Creates a poller with the best available polling backend. This poller must
  * be torn down with poller_destroy when it is no longer needed.
  */
-struct poller *poller_create(void);
+/**
+ * Initializes the poller. The poller must be torn down with poller_finish when
+ * it is no longer needed.
+ */
+void poller_init(struct poller *poller);
 
 /**
- * Destroys the poller. This destroys all remaining event sources, tears down
- * the poller and frees the structure.
+ * De-initializes the poller. This destroys all remaining event sources and
+ * tears down the poller.
  */
-int poller_destroy(struct poller *poller);
+int poller_finish(struct poller *poller);
 
 /**
  * Create an fd event source with the provided initial parameters. This event

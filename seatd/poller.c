@@ -10,28 +10,20 @@
 #include "list.h"
 #include "poller.h"
 
+/* Used for signal handling */
 struct poller *global_poller = NULL;
 
-struct poller *poller_create(void) {
-	if (global_poller != NULL) {
-		errno = EEXIST;
-		return NULL;
-	}
+void poller_init(struct poller *poller) {
+	assert(global_poller == NULL);
 
-	struct poller *poller = calloc(1, sizeof(struct poller));
-	if (poller == NULL) {
-		errno = ENOMEM;
-		return NULL;
-	}
 	list_init(&poller->fds);
 	list_init(&poller->new_fds);
 	list_init(&poller->signals);
 	list_init(&poller->new_signals);
 	global_poller = poller;
-	return poller;
 }
 
-int poller_destroy(struct poller *poller) {
+int poller_finish(struct poller *poller) {
 	for (size_t idx = 0; idx < poller->fds.length; idx++) {
 		struct event_source_fd *bpfd = poller->fds.items[idx];
 		free(bpfd);

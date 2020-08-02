@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
 	log_info("seatd started");
 
 	while (server->running) {
-		if (poller_poll(server->poller) == -1) {
+		if (poller_poll(&server->poller) == -1) {
 			log_errorf("poller failed: %s", strerror(errno));
 			return 1;
 		}

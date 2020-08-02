@@ -10,7 +10,7 @@ struct client;
 
 struct server {
 	bool running;
-	struct poller *poller;
+	struct poller poller;
 
 	struct list seats;
 };
