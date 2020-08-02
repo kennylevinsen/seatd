@@ -201,7 +201,7 @@ int terminal_set_keyboard(int vt, bool enable) {
 		log_errorf("could not generate tty path: %s", strerror(errno));
 		return -1;
 	}
-	int res = ioctl(fd, KDSKBMODE, enable ? K_OFF : K_OFF);
+	int res = ioctl(fd, KDSKBMODE, enable ? K_ON : K_OFF);
 	close(fd);
 	if (res == -1) {
 		log_errorf("could not set KD keyboard mode: %s", strerror(errno));
