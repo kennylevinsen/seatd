@@ -530,23 +530,28 @@ static struct libseat *builtin_open_seat(struct libseat_seat_listener *listener,
 		return NULL;
 	} else if (pid == 0) {
 		int fd = fds[0];
-		struct server *server = server_create();
-		if (server == NULL) {
-			close(fd);
-			exit(1);
+		int res = 0;
+		struct server server = {0};
+		if (server_init(&server) == -1) {
+			res = 1;
+			goto error;
 		}
-		if (server_add_client(server, fd) == -1) {
-			exit(1);
+		if (server_add_client(&server, fd) == -1) {
+			res = 1;
+			goto server_error;
 		}
 		set_deathsig(SIGTERM);
-		while (server->running) {
-			if (poller_poll(server->poller) == -1) {
-				exit(1);
+		while (server.running) {
+			if (poller_poll(&server.poller) == -1) {
+				res = 1;
+				goto server_error;
 			}
 		}
-		server_destroy(server);
+	server_error:
+		server_finish(&server);
+	error:
 		close(fd);
-		exit(0);
+		exit(res);
 	} else {
 		int fd = fds[1];
 		return _open_seat(listener, data, fd);

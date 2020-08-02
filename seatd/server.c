@@ -26,11 +26,7 @@ static int server_handle_vt_acq(int signal, void *data);
 static int server_handle_vt_rel(int signal, void *data);
 static int server_handle_kill(int signal, void *data);
 
-struct server *server_create(void) {
-	struct server *server = calloc(1, sizeof(struct server));
-	if (server == NULL) {
-		return NULL;
-	}
+int server_init(struct server *server) {
 	poller_init(&server->poller);
 
 	list_init(&server->seats);
@@ -39,8 +35,8 @@ struct server *server_create(void) {
 	    poller_add_signal(&server->poller, SIGUSR2, server_handle_vt_acq, server) == NULL ||
 	    poller_add_signal(&server->poller, SIGINT, server_handle_kill, server) == NULL ||
 	    poller_add_signal(&server->poller, SIGTERM, server_handle_kill, server) == NULL) {
-		server_destroy(server);
-		return NULL;
+		server_finish(server);
+		return -1;
 	}
 
 	char *vtenv = getenv("SEATD_VTBOUND");
@@ -48,16 +44,16 @@ struct server *server_create(void) {
 	// TODO: create more seats:
 	struct seat *seat = seat_create("seat0", vtenv == NULL || strcmp(vtenv, "1") == 0);
 	if (seat == NULL) {
-		server_destroy(server);
-		return NULL;
+		server_finish(server);
+		return -1;
 	}
 
 	list_add(&server->seats, seat);
 	server->running = true;
-	return server;
+	return 0;
 }
 
-void server_destroy(struct server *server) {
+void server_finish(struct server *server) {
 	assert(server);
 	for (size_t idx = 0; idx < server->seats.length; idx++) {
 		struct seat *seat = server->seats.items[idx];
@@ -65,7 +61,6 @@ void server_destroy(struct server *server) {
 	}
 	list_free(&server->seats);
 	poller_finish(&server->poller);
-	free(server);
 }
 
 struct seat *server_get_seat(struct server *server, const char *seat_name) {

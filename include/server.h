@@ -4,8 +4,8 @@
 #include <stdbool.h>
 
 #include "list.h"
+#include "poller.h"
 
-struct poller;
 struct client;
 
 struct server {
@@ -15,8 +15,8 @@ struct server {
 	struct list seats;
 };
 
-struct server *server_create(void);
-void server_destroy(struct server *server);
+int server_init(struct server *server);
+void server_finish(struct server *server);
 
 struct seat *server_get_seat(struct server *server, const char *seat_name);
 

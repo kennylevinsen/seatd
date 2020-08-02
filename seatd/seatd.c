@@ -29,8 +29,8 @@ int main(int argc, char *argv[]) {
 	}
 	libseat_log_init(level);
 
-	struct server *server = server_create();
-	if (server == NULL) {
+	struct server server = {0};
+	if (server_init(&server) == -1) {
 		log_errorf("server_create failed: %s", strerror(errno));
 		return 1;
 	}
@@ -39,22 +39,22 @@ int main(int argc, char *argv[]) {
 		path = "/run/seatd.sock";
 	}
 
-	if (server_listen(server, path) == -1) {
+	if (server_listen(&server, path) == -1) {
 		log_errorf("server_listen failed: %s", strerror(errno));
-		server_destroy(server);
+		server_finish(&server);
 		return 1;
 	}
 
 	log_info("seatd started");
 
-	while (server->running) {
-		if (poller_poll(&server->poller) == -1) {
+	while (server.running) {
+		if (poller_poll(&server.poller) == -1) {
 			log_errorf("poller failed: %s", strerror(errno));
 			return 1;
 		}
 	}
 
-	server_destroy(server);
+	server_finish(&server);
 	unlink(path);
 	return 0;
 }
