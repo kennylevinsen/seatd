@@ -31,8 +31,8 @@ void client_kill(struct client *client);
 void client_destroy(struct client *client);
 
 int client_handle_connection(int fd, uint32_t mask, void *data);
-int client_get_session(struct client *client);
-int client_enable_seat(struct client *client);
-int client_disable_seat(struct client *client);
+int client_get_session(const struct client *client);
+int client_send_enable_seat(struct client *client);
+int client_send_disable_seat(struct client *client);
 
 #endif

@@ -398,7 +398,7 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 	return res;
 }
 
-int client_disable_seat(struct client *client) {
+int client_send_disable_seat(struct client *client) {
 	struct proto_header header = {
 		.opcode = SERVER_DISABLE_SEAT,
 		.size = 0,
@@ -411,7 +411,7 @@ int client_disable_seat(struct client *client) {
 	return 0;
 }
 
-int client_enable_seat(struct client *client) {
+int client_send_enable_seat(struct client *client) {
 	struct proto_header header = {
 		.opcode = SERVER_ENABLE_SEAT,
 		.size = 0,
@@ -473,7 +473,7 @@ fail:
 	return -1;
 }
 
-int client_get_session(struct client *client) {
+int client_get_session(const struct client *client) {
 	if (client->seat == NULL || client->seat->active_client != client) {
 		return -1;
 	}

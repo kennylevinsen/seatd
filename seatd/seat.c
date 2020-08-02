@@ -357,6 +357,8 @@ int seat_open_client(struct seat *seat, struct client *client) {
 		return -1;
 	}
 
+	assert(seat->curttyfd == -1);
+
 	if (seat->vt_bound) {
 		int ttyfd = terminal_open(client->seat_vt);
 		if (ttyfd == -1) {
@@ -380,7 +382,7 @@ int seat_open_client(struct seat *seat, struct client *client) {
 	log_debugf("activated %zd devices", client->devices.length);
 
 	seat->active_client = client;
-	if (client_enable_seat(client) == -1) {
+	if (client_send_enable_seat(client) == -1) {
 		seat_remove_client(client);
 		return -1;
 	}
@@ -441,7 +443,7 @@ static int seat_disable_client(struct client *client) {
 	log_debugf("deactivated %zd devices", client->devices.length);
 
 	client->pending_disable = true;
-	if (client_disable_seat(seat->active_client) == -1) {
+	if (client_send_disable_seat(seat->active_client) == -1) {
 		seat_remove_client(client);
 		return -1;
 	}
