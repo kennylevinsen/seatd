@@ -49,7 +49,7 @@ void libseat_log_init(enum libseat_log_level level) {
 void _libseat_logf(enum libseat_log_level level, const char *fmt, ...) {
 	int stored_errno = errno;
 	va_list args;
-	if (level < current_log_level) {
+	if (level > current_log_level) {
 		return;
 	}
 
