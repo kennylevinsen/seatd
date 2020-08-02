@@ -74,3 +74,12 @@ void *list_pop_front(struct list *list) {
 	list_del(list, 0);
 	return item;
 }
+
+void *list_pop_back(struct list *list) {
+	if (list->length == 0) {
+		return NULL;
+	}
+	void *item = list->items[list->length - 1];
+	list->length -= 1;
+	return item;
+}

@@ -17,6 +17,7 @@ void list_del(struct list *list, size_t index);
 void list_concat(struct list *list, struct list *source);
 void list_truncate(struct list *list);
 void *list_pop_front(struct list *list);
+void *list_pop_back(struct list *list);
 size_t list_find(struct list *list, const void *item);
 
 #endif
