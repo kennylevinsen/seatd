@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 
 #include "client.h"
@@ -37,6 +38,11 @@ int main(int argc, char *argv[]) {
 	char *path = getenv("SEATD_SOCK");
 	if (path == NULL) {
 		path = "/run/seatd.sock";
+		struct stat st;
+		if (stat(path, &st) == 0) {
+			log_info("removing leftover seatd socket");
+			unlink(path);
+		}
 	}
 
 	if (server_listen(&server, path) == -1) {
