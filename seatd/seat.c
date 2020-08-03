@@ -40,7 +40,7 @@ void seat_destroy(struct seat *seat) {
 	while (!linked_list_empty(&seat->clients)) {
 		struct client *client = (struct client *)seat->clients.next;
 		// This will cause the client to remove itself from the seat
-		assert(client->seat);
+		assert(client->seat == seat);
 		client_kill(client);
 	}
 	assert(seat->curttyfd == -1);
@@ -367,7 +367,7 @@ int seat_open_client(struct seat *seat, struct client *client) {
 
 	seat->active_client = client;
 	if (client_send_enable_seat(client) == -1) {
-		seat_remove_client(client);
+		log_error("could not send enable signal");
 		return -1;
 	}
 
@@ -428,7 +428,7 @@ static int seat_disable_client(struct client *client) {
 
 	client->pending_disable = true;
 	if (client_send_disable_seat(seat->active_client) == -1) {
-		seat_remove_client(client);
+		log_error("could not send disable event");
 		return -1;
 	}
 

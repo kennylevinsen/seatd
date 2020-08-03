@@ -76,8 +76,6 @@ void client_kill(struct client *client) {
 	assert(client);
 	if (client->connection.fd != -1) {
 		shutdown(client->connection.fd, SHUT_RDWR);
-		close(client->connection.fd);
-		client->connection.fd = -1;
 	};
 	if (client->seat != NULL) {
 		seat_remove_client(client);
@@ -96,7 +94,6 @@ void client_destroy(struct client *client) {
 		client->event_source = NULL;
 	}
 	if (client->connection.fd != -1) {
-		shutdown(client->connection.fd, SHUT_RDWR);
 		close(client->connection.fd);
 		client->connection.fd = -1;
 	}
