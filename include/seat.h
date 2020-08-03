@@ -1,10 +1,12 @@
 #ifndef _SEATD_SEAT_H
 #define _SEATD_SEAT_H
 
-#include "list.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
+
+#include "linked_list.h"
+#include "list.h"
 
 struct client;
 
@@ -15,6 +17,7 @@ enum seat_device_type {
 };
 
 struct seat_device {
+	struct linked_list link; // client::devices
 	int device_id;
 	int fd;
 	int ref_cnt;

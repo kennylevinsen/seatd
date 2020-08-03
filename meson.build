@@ -78,6 +78,7 @@ private_deps = []
 
 server_files = [
 	'common/log.c',
+	'common/linked_list.c',
 	'common/list.c',
 	'common/terminal.c',
 	'common/connection.c',

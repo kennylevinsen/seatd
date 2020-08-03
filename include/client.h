@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "connection.h"
+#include "linked_list.h"
 #include "list.h"
 
 struct server;
@@ -23,7 +24,7 @@ struct client {
 	int seat_vt;
 	bool pending_disable;
 
-	struct list devices;
+	struct linked_list devices;
 };
 
 struct client *client_create(struct server *server, int client_fd);

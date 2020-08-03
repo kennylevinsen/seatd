@@ -15,6 +15,7 @@
 #endif
 
 #include "client.h"
+#include "linked_list.h"
 #include "log.h"
 #include "poller.h"
 #include "protocol.h"
@@ -67,7 +68,7 @@ struct client *client_create(struct server *server, int client_fd) {
 	client->pid = pid;
 	client->server = server;
 	client->connection.fd = client_fd;
-	list_init(&client->devices);
+	linked_list_init(&client->devices);
 	return client;
 }
 
@@ -102,8 +103,7 @@ void client_destroy(struct client *client) {
 		client->connection.fd = -1;
 	}
 	connection_close_fds(&client->connection);
-	assert(client->devices.length == 0);
-	list_free(&client->devices);
+	assert(linked_list_empty(&client->devices));
 	free(client);
 }
 

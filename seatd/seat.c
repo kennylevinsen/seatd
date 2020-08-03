@@ -95,9 +95,10 @@ int seat_remove_client(struct client *client) {
 		seat->next_client = NULL;
 	}
 
-	while (client->devices.length > 0) {
-		struct seat_device *device = list_pop_back(&client->devices);
+	while (!linked_list_empty(&client->devices)) {
+		struct seat_device *device = (struct seat_device *)client->devices.next;
 		seat_close_device(client, device);
+		linked_list_remove(&device->link);
 	}
 
 	if (seat->active_client == client) {
@@ -115,8 +116,9 @@ struct seat_device *seat_find_device(struct client *client, int device_id) {
 	assert(client->seat);
 	assert(device_id != 0);
 
-	for (size_t idx = 0; idx < client->devices.length; idx++) {
-		struct seat_device *seat_device = client->devices.items[idx];
+	for (struct linked_list *elem = client->devices.next; elem != &client->devices;
+	     elem = elem->next) {
+		struct seat_device *seat_device = (struct seat_device *)elem;
 		if (seat_device->device_id == device_id) {
 			return seat_device;
 		}
@@ -159,8 +161,10 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 	}
 
 	int device_id = 1;
-	for (size_t idx = 0; idx < client->devices.length; idx++) {
-		struct seat_device *device = client->devices.items[idx];
+	size_t device_count = 0;
+	for (struct linked_list *elem = client->devices.next; elem != &client->devices;
+	     elem = elem->next) {
+		struct seat_device *device = (struct seat_device *)elem;
 
 		// If the device already exists, increase the ref count and
 		// return it.
@@ -173,9 +177,10 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		if (device->device_id >= device_id) {
 			device_id = device->device_id + 1;
 		}
+		device_count++;
 	}
 
-	if (client->devices.length >= MAX_SEAT_DEVICES) {
+	if (device_count >= MAX_SEAT_DEVICES) {
 		log_error("max seat devices exceeded");
 		errno = EMFILE;
 		return NULL;
@@ -225,7 +230,7 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 	device->fd = fd;
 	device->device_id = device_id;
 	device->active = true;
-	list_add(&client->devices, device);
+	linked_list_insert(&client->devices, &device->link);
 	return device;
 }
 
@@ -233,14 +238,6 @@ int seat_close_device(struct client *client, struct seat_device *seat_device) {
 	assert(client);
 	assert(client->seat);
 	assert(seat_device && seat_device->fd != -1);
-
-	// Find the device in our list
-	size_t idx = list_find(&client->devices, seat_device);
-	if (idx == -1UL) {
-		log_error("seat device not registered by client");
-		errno = ENOENT;
-		return -1;
-	}
 
 	log_debugf("seat: %p, client: %p, path: '%s', device_id: %d", (void *)client->seat,
 		   (void *)client, seat_device->path, seat_device->device_id);
@@ -252,7 +249,7 @@ int seat_close_device(struct client *client, struct seat_device *seat_device) {
 	}
 
 	// The ref count hit zero, so destroy the device
-	list_del(&client->devices, idx);
+	linked_list_remove(&seat_device->link);
 	if (seat_device->active && seat_device->fd != -1) {
 		switch (seat_device->type) {
 		case SEAT_DEVICE_TYPE_DRM:
@@ -372,14 +369,13 @@ int seat_open_client(struct seat *seat, struct client *client) {
 		seat->curttyfd = ttyfd;
 	}
 
-	for (size_t idx = 0; idx < client->devices.length; idx++) {
-		struct seat_device *device = client->devices.items[idx];
+	for (struct linked_list *elem = client->devices.next; elem != &client->devices;
+	     elem = elem->next) {
+		struct seat_device *device = (struct seat_device *)elem;
 		if (seat_activate_device(client, device) == -1) {
 			log_errorf("unable to activate '%s': %s", device->path, strerror(errno));
 		}
 	}
-
-	log_debugf("activated %zd devices", client->devices.length);
 
 	seat->active_client = client;
 	if (client_send_enable_seat(client) == -1) {
@@ -403,11 +399,12 @@ int seat_close_client(struct client *client) {
 		return -1;
 	}
 
-	while (client->devices.length > 0) {
-		struct seat_device *device = list_pop_back(&client->devices);
+	while (!linked_list_empty(&client->devices)) {
+		struct seat_device *device = (struct seat_device *)client->devices.next;
 		if (seat_close_device(client, device) == -1) {
 			log_errorf("unable to close '%s': %s", device->path, strerror(errno));
 		}
+		linked_list_remove(&device->link);
 	}
 
 	client->pending_disable = false;
@@ -433,14 +430,13 @@ static int seat_disable_client(struct client *client) {
 	// The reason we cannot just close them is that certain device fds, such
 	// as for DRM, must maintain the exact same file description for their
 	// contexts to remain valid.
-	for (size_t idx = 0; idx < client->devices.length; idx++) {
-		struct seat_device *device = client->devices.items[idx];
+	for (struct linked_list *elem = client->devices.next; elem != &client->devices;
+	     elem = elem->next) {
+		struct seat_device *device = (struct seat_device *)elem;
 		if (seat_deactivate_device(client, device) == -1) {
 			log_errorf("unable to deactivate '%s': %s", device->path, strerror(errno));
 		}
 	}
-
-	log_debugf("deactivated %zd devices", client->devices.length);
 
 	client->pending_disable = true;
 	if (client_send_disable_seat(seat->active_client) == -1) {
