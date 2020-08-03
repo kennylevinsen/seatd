@@ -547,6 +547,13 @@ int seat_activate(struct seat *seat) {
 		// If we're asked to do a simple VT switch, do that
 		if (seat->next_vt > 0) {
 			log_info("executing VT switch");
+			if (seat->curttyfd != -1) {
+				terminal_set_process_switching(seat->curttyfd, false);
+				terminal_set_keyboard(seat->curttyfd, true);
+				terminal_set_graphics(seat->curttyfd, false);
+				close(seat->curttyfd);
+				seat->curttyfd = -1;
+			}
 			terminal_switch_vt(ttyfd, seat->next_vt);
 			seat->next_vt = 0;
 			close(ttyfd);
