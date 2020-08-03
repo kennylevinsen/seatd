@@ -7,11 +7,11 @@
 
 #include "connection.h"
 #include "linked_list.h"
-#include "list.h"
 
 struct server;
 
 struct client {
+	struct linked_list link; // seat::clients
 	struct server *server;
 	struct event_source_fd *event_source;
 	struct connection connection;

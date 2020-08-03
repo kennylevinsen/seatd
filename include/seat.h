@@ -6,7 +6,6 @@
 #include <sys/types.h>
 
 #include "linked_list.h"
-#include "list.h"
 
 struct client;
 
@@ -28,7 +27,7 @@ struct seat_device {
 
 struct seat {
 	char *seat_name;
-	struct list clients;
+	struct linked_list clients;
 	struct client *active_client;
 	struct client *next_client;
 

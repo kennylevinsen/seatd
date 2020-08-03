@@ -12,7 +12,7 @@
 #include "client.h"
 #include "drm.h"
 #include "evdev.h"
-#include "list.h"
+#include "linked_list.h"
 #include "log.h"
 #include "protocol.h"
 #include "seat.h"
@@ -23,7 +23,7 @@ struct seat *seat_create(const char *seat_name, bool vt_bound) {
 	if (seat == NULL) {
 		return NULL;
 	}
-	list_init(&seat->clients);
+	linked_list_init(&seat->clients);
 	seat->vt_bound = vt_bound;
 	seat->curttyfd = -1;
 	seat->seat_name = strdup(seat_name);
@@ -37,8 +37,8 @@ struct seat *seat_create(const char *seat_name, bool vt_bound) {
 
 void seat_destroy(struct seat *seat) {
 	assert(seat);
-	while (seat->clients.length > 0) {
-		struct client *client = seat->clients.items[seat->clients.length - 1];
+	while (!linked_list_empty(&seat->clients)) {
+		struct client *client = (struct client *)seat->clients.next;
 		// This will cause the client to remove itself from the seat
 		assert(client->seat);
 		client_kill(client);
@@ -65,7 +65,7 @@ int seat_add_client(struct seat *seat, struct client *client) {
 
 	client->seat = seat;
 
-	list_add(&seat->clients, client);
+	linked_list_insert(&seat->clients, &client->link);
 	log_debug("added client");
 	return 0;
 }
@@ -77,19 +77,7 @@ int seat_remove_client(struct client *client) {
 	struct seat *seat = client->seat;
 
 	// We must first remove the client to avoid reactivation
-	bool found = false;
-	for (size_t idx = 0; idx < seat->clients.length; idx++) {
-		struct client *c = seat->clients.items[idx];
-		if (client == c) {
-			list_del(&seat->clients, idx);
-			found = true;
-			break;
-		}
-	}
-
-	if (!found) {
-		log_debug("client was not on the client list");
-	}
+	linked_list_remove(&client->link);
 
 	if (seat->next_client == client) {
 		seat->next_client = NULL;
@@ -108,7 +96,7 @@ int seat_remove_client(struct client *client) {
 	client->seat = NULL;
 	log_debug("removed client");
 
-	return found ? 0 : -1;
+	return 0;
 }
 
 struct seat_device *seat_find_device(struct client *client, int device_id) {
@@ -498,8 +486,10 @@ int seat_set_next_session(struct client *client, int session) {
 	}
 
 	struct client *target = NULL;
-	for (size_t idx = 0; idx < seat->clients.length; idx++) {
-		struct client *c = seat->clients.items[idx];
+
+	for (struct linked_list *elem = seat->clients.next; elem != &seat->clients;
+	     elem = elem->next) {
+		struct client *c = (struct client *)elem;
 		if (client_get_session(c) == session) {
 			target = c;
 			break;
@@ -579,17 +569,18 @@ int seat_activate(struct seat *seat) {
 		// A specific client has been requested, use it
 		next_client = seat->next_client;
 		seat->next_client = NULL;
-	} else if (seat->clients.length > 0 && seat->vt_bound) {
+	} else if (!linked_list_empty(&seat->clients) && seat->vt_bound) {
 		// No client is requested, try to find an applicable one
-		for (size_t idx = 0; idx < seat->clients.length; idx++) {
-			struct client *client = seat->clients.items[idx];
+		for (struct linked_list *elem = seat->clients.next; elem != &seat->clients;
+		     elem = elem->next) {
+			struct client *client = (struct client *)elem;
 			if (client->seat_vt == vt) {
 				next_client = client;
 				break;
 			}
 		}
-	} else if (seat->clients.length > 0) {
-		next_client = seat->clients.items[0];
+	} else if (!linked_list_empty(&seat->clients)) {
+		next_client = (struct client *)seat->clients.next;
 	}
 
 	if (next_client == NULL) {
