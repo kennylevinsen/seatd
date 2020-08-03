@@ -26,7 +26,6 @@
 #include "backend.h"
 #include "drm.h"
 #include "libseat.h"
-#include "list.h"
 
 struct backend_logind {
 	struct libseat base;

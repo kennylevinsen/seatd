@@ -70,7 +70,7 @@ add_project_arguments(
 
 private_files = [
 	'common/connection.c',
-	'common/list.c',
+	'common/linked_list.c',
 	'common/log.c',
 ]
 

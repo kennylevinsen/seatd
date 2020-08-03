@@ -13,7 +13,7 @@
 #include "backend.h"
 #include "connection.h"
 #include "libseat.h"
-#include "list.h"
+#include "linked_list.h"
 #include "log.h"
 #include "protocol.h"
 
@@ -26,6 +26,7 @@ const struct libseat_impl seatd_impl;
 const struct libseat_impl builtin_impl;
 
 struct pending_event {
+	struct linked_list link; // backend_seat::link
 	int opcode;
 };
 
@@ -34,7 +35,7 @@ struct backend_seatd {
 	struct connection connection;
 	struct libseat_seat_listener *seat_listener;
 	void *seat_listener_data;
-	struct list pending_events;
+	struct linked_list pending_events;
 
 	char seat_name[MAX_SEAT_LEN];
 };
@@ -120,14 +121,23 @@ static int queue_event(struct backend_seatd *backend, int opcode) {
 	}
 
 	ev->opcode = opcode;
-	list_add(&backend->pending_events, ev);
+	linked_list_insert(&backend->pending_events, &ev->link);
 	return 0;
 }
 
 static void execute_events(struct backend_seatd *backend) {
-	while (backend->pending_events.length > 0) {
-		struct pending_event *ev = list_pop_front(&backend->pending_events);
+	struct linked_list list = {
+		.next = backend->pending_events.next,
+		.prev = backend->pending_events.prev,
+	};
+	list.next->prev = &list;
+	list.prev->next = &list;
+
+	linked_list_init(&backend->pending_events);
+	while (!linked_list_empty(&list)) {
+		struct pending_event *ev = (struct pending_event *)list.next;
 		int opcode = ev->opcode;
+		linked_list_remove(&ev->link);
 		free(ev);
 
 		switch (opcode) {
@@ -258,10 +268,11 @@ static void destroy(struct backend_seatd *backend) {
 		backend->connection.fd = -1;
 	}
 	connection_close_fds(&backend->connection);
-	for (size_t idx = 0; idx < backend->pending_events.length; idx++) {
-		free(backend->pending_events.items[idx]);
+	while (!linked_list_empty(&backend->pending_events)) {
+		struct pending_event *ev = (struct pending_event *)backend->pending_events.next;
+		linked_list_remove(&ev->link);
+		free(ev);
 	}
-	list_free(&backend->pending_events);
 	free(backend);
 }
 
@@ -275,7 +286,7 @@ static struct libseat *_open_seat(struct libseat_seat_listener *listener, void *
 	backend->seat_listener_data = data;
 	backend->connection.fd = fd;
 	backend->base.impl = &seatd_impl;
-	list_init(&backend->pending_events);
+	linked_list_init(&backend->pending_events);
 
 	struct proto_header header = {
 		.opcode = CLIENT_OPEN_SEAT,
