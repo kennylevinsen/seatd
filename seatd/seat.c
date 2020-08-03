@@ -535,7 +535,7 @@ int seat_activate(struct seat *seat) {
 			log_info("acking pending VT switch");
 			seat->vt_pending_ack = false;
 			if (seat->curttyfd != -1) {
-				terminal_set_process_switching(seat->curttyfd, false);
+				terminal_set_process_switching(seat->curttyfd, true);
 				terminal_set_keyboard(seat->curttyfd, true);
 				terminal_set_graphics(seat->curttyfd, false);
 				close(seat->curttyfd);
@@ -548,7 +548,7 @@ int seat_activate(struct seat *seat) {
 		if (seat->next_vt > 0) {
 			log_info("executing VT switch");
 			if (seat->curttyfd != -1) {
-				terminal_set_process_switching(seat->curttyfd, false);
+				terminal_set_process_switching(seat->curttyfd, true);
 				terminal_set_keyboard(seat->curttyfd, true);
 				terminal_set_graphics(seat->curttyfd, false);
 				close(seat->curttyfd);
