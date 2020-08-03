@@ -81,7 +81,6 @@ void client_kill(struct client *client) {
 	};
 	if (client->seat != NULL) {
 		seat_remove_client(client);
-		client->seat = NULL;
 	}
 }
 
@@ -91,7 +90,6 @@ void client_destroy(struct client *client) {
 	if (client->seat != NULL) {
 		// This should also close and remove all devices
 		seat_remove_client(client);
-		client->seat = NULL;
 	}
 	if (client->event_source != NULL) {
 		event_source_fd_destroy(client->event_source);
@@ -478,9 +476,9 @@ int client_get_session(const struct client *client) {
 		return -1;
 	}
 	if (client->seat->vt_bound) {
-		return client->seat->active_client->seat_vt;
+		return client->seat_vt;
 	}
 	// TODO: Store some session sequence
-	abort();
+	errno = ENOSYS;
 	return -1;
 }
