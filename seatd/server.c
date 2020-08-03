@@ -120,9 +120,10 @@ static int set_nonblock(int fd) {
 static int server_handle_connection(int fd, uint32_t mask, void *data) {
 	struct server *server = data;
 	if (mask & (EVENT_ERROR | EVENT_HANGUP)) {
-		close(fd);
+		shutdown(fd, SHUT_RDWR);
+		server->running = false;
 		log_errorf("server socket recieved an error: %s", strerror(errno));
-		exit(1);
+		return -1;
 	}
 
 	if (mask & EVENT_READABLE) {
