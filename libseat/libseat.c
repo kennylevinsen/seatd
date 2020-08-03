@@ -38,7 +38,7 @@ struct libseat *libseat_open_seat(struct libseat_seat_listener *listener, void *
 		return NULL;
 	}
 
-	char *loglevel = getenv("SEATD_LOGLEVEL");
+	char *loglevel = getenv("LIBSEAT_LOGLEVEL");
 	enum libseat_log_level level = LIBSEAT_SILENT;
 	if (loglevel != NULL) {
 		if (strcmp(loglevel, "silent") == 0) {

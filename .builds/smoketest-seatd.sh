@@ -4,7 +4,7 @@
 # Start seatd
 #
 [ -f seatd.sock ] && sudo rm seatd.sock
-sudo LIBSEAT_LOGLEVEL=debug SEATD_SOCK=./seatd.sock ./build/seatd &
+sudo SEATD_LOGLEVEL=debug SEATD_SOCK=./seatd.sock ./build/seatd &
 
 # seatd is started in the background, so wait for it to come alive
 cnt=0
