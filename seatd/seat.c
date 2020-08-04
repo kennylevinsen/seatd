@@ -86,7 +86,6 @@ int seat_remove_client(struct client *client) {
 	while (!linked_list_empty(&client->devices)) {
 		struct seat_device *device = (struct seat_device *)client->devices.next;
 		seat_close_device(client, device);
-		linked_list_remove(&device->link);
 	}
 
 	if (seat->active_client == client) {
@@ -392,7 +391,6 @@ int seat_close_client(struct client *client) {
 		if (seat_close_device(client, device) == -1) {
 			log_errorf("unable to close '%s': %s", device->path, strerror(errno));
 		}
-		linked_list_remove(&device->link);
 	}
 
 	client->pending_disable = false;
