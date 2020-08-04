@@ -29,5 +29,6 @@ void linked_list_remove(struct linked_list *elem) {
 }
 
 bool linked_list_empty(struct linked_list *list) {
+	assert(list->prev != NULL && list->next != NULL);
 	return list->next == list;
 }
