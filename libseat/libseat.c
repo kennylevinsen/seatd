@@ -38,17 +38,17 @@ struct libseat *libseat_open_seat(struct libseat_seat_listener *listener, void *
 	}
 
 	char *loglevel = getenv("LIBSEAT_LOGLEVEL");
-	enum libseat_log_level level = LIBSEAT_SILENT;
+	enum log_level level = LOGLEVEL_SILENT;
 	if (loglevel != NULL) {
 		if (strcmp(loglevel, "silent") == 0) {
-			level = LIBSEAT_SILENT;
+			level = LOGLEVEL_SILENT;
 		} else if (strcmp(loglevel, "info") == 0) {
-			level = LIBSEAT_INFO;
+			level = LOGLEVEL_INFO;
 		} else if (strcmp(loglevel, "debug") == 0) {
-			level = LIBSEAT_DEBUG;
+			level = LOGLEVEL_DEBUG;
 		}
 	}
-	libseat_log_init(level);
+	log_init(level);
 
 	char *backend_type = getenv("LIBSEAT_BACKEND");
 	struct libseat *backend = NULL;

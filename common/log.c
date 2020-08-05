@@ -10,22 +10,22 @@
 
 const long NSEC_PER_SEC = 1000000000;
 
-static enum libseat_log_level current_log_level;
+static enum log_level current_log_level;
 static struct timespec start_time = {-1, -1};
 static bool colored = false;
 
 static const char *verbosity_colors[] = {
-	[LIBSEAT_SILENT] = "",
-	[LIBSEAT_ERROR] = "\x1B[1;31m",
-	[LIBSEAT_INFO] = "\x1B[1;34m",
-	[LIBSEAT_DEBUG] = "\x1B[1;90m",
+	[LOGLEVEL_SILENT] = "",
+	[LOGLEVEL_ERROR] = "\x1B[1;31m",
+	[LOGLEVEL_INFO] = "\x1B[1;34m",
+	[LOGLEVEL_DEBUG] = "\x1B[1;90m",
 };
 
 static const char *verbosity_headers[] = {
-	[LIBSEAT_SILENT] = "",
-	[LIBSEAT_ERROR] = "[ERROR]",
-	[LIBSEAT_INFO] = "[INFO]",
-	[LIBSEAT_DEBUG] = "[DEBUG]",
+	[LOGLEVEL_SILENT] = "",
+	[LOGLEVEL_ERROR] = "[ERROR]",
+	[LOGLEVEL_INFO] = "[INFO]",
+	[LOGLEVEL_DEBUG] = "[DEBUG]",
 };
 
 static void timespec_sub(struct timespec *r, const struct timespec *a, const struct timespec *b) {
@@ -37,7 +37,7 @@ static void timespec_sub(struct timespec *r, const struct timespec *a, const str
 	}
 }
 
-void libseat_log_init(enum libseat_log_level level) {
+void log_init(enum log_level level) {
 	if (start_time.tv_sec >= 0) {
 		return;
 	}
@@ -46,7 +46,7 @@ void libseat_log_init(enum libseat_log_level level) {
 	colored = isatty(STDERR_FILENO);
 }
 
-void _libseat_logf(enum libseat_log_level level, const char *fmt, ...) {
+void _logf(enum log_level level, const char *fmt, ...) {
 	int stored_errno = errno;
 	va_list args;
 	if (level > current_log_level) {
@@ -56,7 +56,7 @@ void _libseat_logf(enum libseat_log_level level, const char *fmt, ...) {
 	struct timespec ts = {0};
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	timespec_sub(&ts, &ts, &start_time);
-	unsigned c = (level < LIBSEAT_LOG_LEVEL_LAST) ? level : LIBSEAT_LOG_LEVEL_LAST - 1;
+	unsigned c = (level < LOGLEVEL_LAST) ? level : LOGLEVEL_LAST - 1;
 
 	const char *prefix, *postfix;
 

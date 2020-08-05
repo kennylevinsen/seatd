@@ -18,17 +18,17 @@ int main(int argc, char *argv[]) {
 	(void)argv;
 
 	char *loglevel = getenv("SEATD_LOGLEVEL");
-	enum libseat_log_level level = LIBSEAT_ERROR;
+	enum log_level level = LOGLEVEL_ERROR;
 	if (loglevel != NULL) {
 		if (strcmp(loglevel, "silent") == 0) {
-			level = LIBSEAT_SILENT;
+			level = LOGLEVEL_SILENT;
 		} else if (strcmp(loglevel, "info") == 0) {
-			level = LIBSEAT_INFO;
+			level = LOGLEVEL_INFO;
 		} else if (strcmp(loglevel, "debug") == 0) {
-			level = LIBSEAT_DEBUG;
+			level = LOGLEVEL_DEBUG;
 		}
 	}
-	libseat_log_init(level);
+	log_init(level);
 
 	struct server server = {0};
 	if (server_init(&server) == -1) {

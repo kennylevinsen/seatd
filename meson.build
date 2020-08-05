@@ -64,7 +64,7 @@ endif
 
 
 add_project_arguments(
-	'-DLIBSEAT_REL_SRC_DIR="@0@"'.format(join_paths(relative_dir_parts) + '/'),
+	'-DREL_SRC_DIR="@0@"'.format(join_paths(relative_dir_parts) + '/'),
 	language: 'c',
 )
 

@@ -9,47 +9,43 @@
 #define ATTRIB_PRINTF(start, end)
 #endif
 
-#ifdef LIBSEAT_REL_SRC_DIR
-#define _LIBSEAT_FILENAME ((const char *)__FILE__ + sizeof(LIBSEAT_REL_SRC_DIR) - 1)
+#ifdef REL_SRC_DIR
+#define __FILENAME__ ((const char *)__FILE__ + sizeof(REL_SRC_DIR) - 1)
 #else
-#define _LIBSEAT_FILENAME __FILE__
+#define __FILENAME__ __FILE__
 #endif
 
-#define log_infof(fmt, ...)                                                                    \
-	_libseat_logf(LIBSEAT_INFO, "[%s:%d] %s: " fmt, _LIBSEAT_FILENAME, __LINE__, __func__, \
-		      __VA_ARGS__)
+#define log_infof(fmt, ...) \
+	_logf(LOGLEVEL_INFO, "[%s:%d] %s: " fmt, __FILENAME__, __LINE__, __func__, __VA_ARGS__)
 
-#define log_info(str) \
-	_libseat_logf(LIBSEAT_INFO, "[%s:%d] %s: %s", _LIBSEAT_FILENAME, __LINE__, __func__, str)
+#define log_info(str) _logf(LOGLEVEL_INFO, "[%s:%d] %s: %s", __FILENAME__, __LINE__, __func__, str)
 
-#define log_errorf(fmt, ...)                                                                    \
-	_libseat_logf(LIBSEAT_ERROR, "[%s:%d] %s: " fmt, _LIBSEAT_FILENAME, __LINE__, __func__, \
-		      __VA_ARGS__)
+#define log_errorf(fmt, ...) \
+	_logf(LOGLEVEL_ERROR, "[%s:%d] %s: " fmt, __FILENAME__, __LINE__, __func__, __VA_ARGS__)
 
 #define log_error(str) \
-	_libseat_logf(LIBSEAT_ERROR, "[%s:%d] %s: %s", _LIBSEAT_FILENAME, __LINE__, __func__, str)
+	_logf(LOGLEVEL_ERROR, "[%s:%d] %s: %s", __FILENAME__, __LINE__, __func__, str)
 
 #ifdef DEBUG
-#define log_debugf(fmt, ...)                                                                    \
-	_libseat_logf(LIBSEAT_DEBUG, "[%s:%d] %s: " fmt, _LIBSEAT_FILENAME, __LINE__, __func__, \
-		      __VA_ARGS__)
+#define log_debugf(fmt, ...) \
+	_logf(LOGLEVEL_DEBUG, "[%s:%d] %s: " fmt, __FILENAME__, __LINE__, __func__, __VA_ARGS__)
 
 #define log_debug(str) \
-	_libseat_logf(LIBSEAT_DEBUG, "[%s:%d] %s: %s", _LIBSEAT_FILENAME, __LINE__, __func__, str)
+	_logf(LOGLEVEL_DEBUG, "[%s:%d] %s: %s", __FILENAME__, __LINE__, __func__, str)
 #else
 #define log_debugf(fmt, ...)
 #define log_debug(str)
 #endif
 
-enum libseat_log_level {
-	LIBSEAT_SILENT = 0,
-	LIBSEAT_ERROR = 1,
-	LIBSEAT_INFO = 2,
-	LIBSEAT_DEBUG = 3,
-	LIBSEAT_LOG_LEVEL_LAST,
+enum log_level {
+	LOGLEVEL_SILENT = 0,
+	LOGLEVEL_ERROR = 1,
+	LOGLEVEL_INFO = 2,
+	LOGLEVEL_DEBUG = 3,
+	LOGLEVEL_LAST,
 };
 
-void libseat_log_init(enum libseat_log_level level);
-void _libseat_logf(enum libseat_log_level level, const char *fmt, ...) ATTRIB_PRINTF(2, 3);
+void log_init(enum log_level level);
+void _logf(enum log_level level, const char *fmt, ...) ATTRIB_PRINTF(2, 3);
 
 #endif
