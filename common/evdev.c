@@ -13,8 +13,9 @@
 #error Unsupported platform
 #endif
 
-#include "compiler.h"
 #include "evdev.h"
+
+#define STRLEN(s) ((sizeof(s) / sizeof(s[0])) - 1)
 
 int path_is_evdev(const char *path) {
 	static const char prefix[] = "/dev/input/event";

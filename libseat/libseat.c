@@ -7,7 +7,6 @@
 #include <string.h>
 
 #include "backend.h"
-#include "compiler.h"
 #include "libseat.h"
 #include "log.h"
 

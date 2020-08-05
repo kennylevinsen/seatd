@@ -6,7 +6,6 @@
 #include <sys/sysmacros.h>
 #endif
 
-#include "compiler.h"
 #include "drm.h"
 
 // From libdrm
@@ -14,6 +13,8 @@
 #define DRM_IO(nr)	      _IO(DRM_IOCTL_BASE, nr)
 #define DRM_IOCTL_SET_MASTER  DRM_IO(0x1e)
 #define DRM_IOCTL_DROP_MASTER DRM_IO(0x1f)
+
+#define STRLEN(s) ((sizeof(s) / sizeof(s[0])) - 1)
 
 int drm_set_master(int fd) {
 	return ioctl(fd, DRM_IOCTL_SET_MASTER, 0);

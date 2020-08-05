@@ -1,20 +1,13 @@
 #ifndef _LOG_H
 #define _LOG_H
 
-#include "compiler.h"
 #include <stdarg.h>
 
-enum libseat_log_level {
-	LIBSEAT_SILENT = 0,
-	LIBSEAT_ERROR = 1,
-	LIBSEAT_INFO = 2,
-	LIBSEAT_DEBUG = 3,
-	LIBSEAT_LOG_LEVEL_LAST,
-};
-
-void libseat_log_init(enum libseat_log_level level);
-
-void _libseat_logf(enum libseat_log_level level, const char *fmt, ...) ATTRIB_PRINTF(2, 3);
+#ifdef __GNUC__
+#define ATTRIB_PRINTF(start, end) __attribute__((format(printf, start, end)))
+#else
+#define ATTRIB_PRINTF(start, end)
+#endif
 
 #ifdef LIBSEAT_REL_SRC_DIR
 #define _LIBSEAT_FILENAME ((const char *)__FILE__ + sizeof(LIBSEAT_REL_SRC_DIR) - 1)
@@ -47,5 +40,16 @@ void _libseat_logf(enum libseat_log_level level, const char *fmt, ...) ATTRIB_PR
 #define log_debugf(fmt, ...)
 #define log_debug(str)
 #endif
+
+enum libseat_log_level {
+	LIBSEAT_SILENT = 0,
+	LIBSEAT_ERROR = 1,
+	LIBSEAT_INFO = 2,
+	LIBSEAT_DEBUG = 3,
+	LIBSEAT_LOG_LEVEL_LAST,
+};
+
+void libseat_log_init(enum libseat_log_level level);
+void _libseat_logf(enum libseat_log_level level, const char *fmt, ...) ATTRIB_PRINTF(2, 3);
 
 #endif
