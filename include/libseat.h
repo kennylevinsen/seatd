@@ -2,7 +2,7 @@
 #define _LIBSEAT_H
 
 /*
- * An opaque struct containing an opened seat, created by libseat_open-seat and
+ * An opaque struct containing an opened seat, created by libseat_open_seat and
  * destroyed by libseat_close_seat.
  */
 struct libseat;
