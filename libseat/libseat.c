@@ -10,9 +10,9 @@
 #include "libseat.h"
 #include "log.h"
 
-extern const struct libseat_impl seatd_impl;
-extern const struct libseat_impl logind_impl;
-extern const struct libseat_impl builtin_impl;
+extern const struct seat_impl seatd_impl;
+extern const struct seat_impl logind_impl;
+extern const struct seat_impl builtin_impl;
 
 static const struct named_backend impls[] = {
 #ifdef SEATD_ENABLED

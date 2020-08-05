@@ -3,19 +3,19 @@
 
 #include "libseat.h"
 
-struct libseat_impl;
+struct seat_impl;
 struct libseat_seat_listener;
 
 struct libseat {
-	const struct libseat_impl *impl;
+	const struct seat_impl *impl;
 };
 
 struct named_backend {
 	const char *name;
-	const struct libseat_impl *backend;
+	const struct seat_impl *backend;
 };
 
-struct libseat_impl {
+struct seat_impl {
 	struct libseat *(*open_seat)(struct libseat_seat_listener *listener, void *data);
 	int (*disable_seat)(struct libseat *seat);
 	int (*close_seat)(struct libseat *seat);

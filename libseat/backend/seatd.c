@@ -22,8 +22,8 @@
 #include "server.h"
 #endif
 
-const struct libseat_impl seatd_impl;
-const struct libseat_impl builtin_impl;
+const struct seat_impl seatd_impl;
+const struct seat_impl builtin_impl;
 
 struct pending_event {
 	struct linked_list link; // backend_seat::link
@@ -495,7 +495,7 @@ static int disable_seat(struct libseat *base) {
 	return 0;
 }
 
-const struct libseat_impl seatd_impl = {
+const struct seat_impl seatd_impl = {
 	.open_seat = open_seat,
 	.disable_seat = disable_seat,
 	.close_seat = close_seat,
@@ -569,7 +569,7 @@ static struct libseat *builtin_open_seat(struct libseat_seat_listener *listener,
 	}
 }
 
-const struct libseat_impl builtin_impl = {
+const struct seat_impl builtin_impl = {
 	.open_seat = builtin_open_seat,
 	.disable_seat = disable_seat,
 	.close_seat = close_seat,

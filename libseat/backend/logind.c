@@ -44,7 +44,7 @@ struct backend_logind {
 	int has_drm;
 };
 
-const struct libseat_impl logind_impl;
+const struct seat_impl logind_impl;
 static struct backend_logind *backend_logind_from_libseat_backend(struct libseat *base);
 
 static void destroy(struct backend_logind *backend) {
@@ -768,7 +768,7 @@ error:
 	return NULL;
 }
 
-const struct libseat_impl logind_impl = {
+const struct seat_impl logind_impl = {
 	.open_seat = logind_open_seat,
 	.disable_seat = disable_seat,
 	.close_seat = close_seat,
