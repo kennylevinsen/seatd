@@ -115,6 +115,7 @@ out:
 static int close_device(struct libseat *base, int device_id) {
 	struct backend_logind *session = backend_logind_from_libseat_backend(base);
 	if (device_id < 0) {
+		errno = EINVAL;
 		return -1;
 	}
 
@@ -133,19 +134,20 @@ static int close_device(struct libseat *base, int device_id) {
 
 	sd_bus_message *msg = NULL;
 	sd_bus_error error = SD_BUS_ERROR_NULL;
-	sd_bus_call_method(session->bus, "org.freedesktop.login1", session->path,
-			   "org.freedesktop.login1.Session", "ReleaseDevice", &error, &msg, "uu",
-			   major(st.st_rdev), minor(st.st_rdev));
+	int ret = sd_bus_call_method(session->bus, "org.freedesktop.login1", session->path,
+				     "org.freedesktop.login1.Session", "ReleaseDevice", &error,
+				     &msg, "uu", major(st.st_rdev), minor(st.st_rdev));
 
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(msg);
 
-	return -1;
+	return ret >= 0;
 }
 
 static int switch_session(struct libseat *base, int s) {
 	struct backend_logind *session = backend_logind_from_libseat_backend(base);
 	if (s >= UINT16_MAX || s < 0) {
+		errno = EINVAL;
 		return -1;
 	}
 
@@ -192,6 +194,7 @@ static int poll_connection(struct backend_logind *backend, int timeout) {
 	}
 
 	if (fd.revents & (POLLERR | POLLHUP)) {
+		errno = ECONNRESET;
 		return -1;
 	}
 	return 0;
