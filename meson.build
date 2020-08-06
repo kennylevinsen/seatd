@@ -168,6 +168,16 @@ if get_option('examples').enabled()
 	)
 endif
 
+test(
+        'linked_list',
+        executable(
+                'linked_list_test',
+                ['common/linked_list.c', 'tests/linked_list.c'],
+                include_directories: [include_directories('.', 'include')],
+        )
+)
+
+
 summary({
    'seatd': get_option('seatd').enabled() ? 1 : 0,
    'builtin': get_option('builtin').enabled() ? 1 : 0,
