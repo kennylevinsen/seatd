@@ -151,18 +151,13 @@ static int switch_session(struct libseat *base, int s) {
 		return -1;
 	}
 
-	// Only seat0 has VTs associated with it
-	if (strcmp(session->seat, "seat0") != 0) {
-		return true;
-	}
-
-	int ret;
 	sd_bus_message *msg = NULL;
 	sd_bus_error error = SD_BUS_ERROR_NULL;
 
-	ret = sd_bus_call_method(session->bus, "org.freedesktop.login1",
-				 "/org/freedesktop/login1/seat/seat0", "org.freedesktop.login1.Seat",
-				 "SwitchTo", &error, &msg, "u", (uint32_t)s);
+	int ret = sd_bus_call_method(session->bus, "org.freedesktop.login1",
+				     "/org/freedesktop/login1/seat/seat0",
+				     "org.freedesktop.login1.Seat", "SwitchTo", &error, &msg, "u",
+				     (uint32_t)s);
 
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(msg);
