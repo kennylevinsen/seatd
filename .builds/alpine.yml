@@ -13,6 +13,9 @@ tasks:
    - build: |
       cd seatd
       ninja -C build
+   - unittest: |
+      cd seatd
+      ninja -C build test
    - scan-build: |
       cd seatd
       ninja -C build scan-build

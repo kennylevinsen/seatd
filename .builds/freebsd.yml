@@ -10,6 +10,9 @@ tasks:
    - build: |
       cd seatd
       ninja -C build
+   - unittest: |
+      cd seatd
+      ninja -C build test
    - smoketest: |
       cd seatd
       timeout -s KILL 30s ./.builds/smoketest-seatd.sh
