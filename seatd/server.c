@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <grp.h>
 #include <signal.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -19,8 +18,6 @@
 #include "seat.h"
 #include "server.h"
 #include "terminal.h"
-
-#define LISTEN_BACKLOG 16
 
 static int server_handle_vt_acq(int signal, void *data);
 static int server_handle_vt_rel(int signal, void *data);
@@ -117,42 +114,6 @@ static int set_nonblock(int fd) {
 	return 0;
 }
 
-static int server_handle_connection(int fd, uint32_t mask, void *data) {
-	struct server *server = data;
-	if (mask & (EVENT_ERROR | EVENT_HANGUP)) {
-		shutdown(fd, SHUT_RDWR);
-		server->running = false;
-		log_errorf("server socket recieved an error: %s", strerror(errno));
-		return -1;
-	}
-
-	if (mask & EVENT_READABLE) {
-		int new_fd = accept(fd, NULL, NULL);
-		if (fd == -1) {
-			log_errorf("could not accept client connection: %s", strerror(errno));
-			return 0;
-		}
-
-		if (set_nonblock(new_fd) != 0) {
-			close(new_fd);
-			log_errorf("could not prepare new client socket: %s", strerror(errno));
-			return 0;
-		}
-
-		struct client *client = client_create(server, new_fd);
-		client->event_source = poller_add_fd(&server->poller, new_fd, EVENT_READABLE,
-						     client_handle_connection, client);
-		if (client->event_source == NULL) {
-			client_destroy(client);
-			log_errorf("could not add client socket to poller: %s", strerror(errno));
-			return 0;
-		}
-		log_infof("new client connected (pid: %d, uid: %d, gid: %d)", client->pid,
-			  client->uid, client->gid);
-	}
-	return 0;
-}
-
 int server_add_client(struct server *server, int fd) {
 	if (set_nonblock(fd) != 0) {
 		close(fd);
@@ -168,53 +129,30 @@ int server_add_client(struct server *server, int fd) {
 		log_errorf("could not add client socket to poller: %s", strerror(errno));
 		return -1;
 	}
+	log_infof("new client connected (pid: %d, uid: %d, gid: %d)", client->pid, client->uid,
+		  client->gid);
 	return 0;
 }
 
-int server_listen(struct server *server, const char *path) {
-	union {
-		struct sockaddr_un unix;
-		struct sockaddr generic;
-	} addr = {{0}};
-	int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (fd == -1) {
-		log_errorf("could not create socket: %s", strerror(errno));
-		return -1;
-	}
-	if (set_nonblock(fd) == -1) {
-		close(fd);
-		log_errorf("could not prepare socket: %s", strerror(errno));
+int server_handle_connection(int fd, uint32_t mask, void *data) {
+	struct server *server = data;
+	if (mask & (EVENT_ERROR | EVENT_HANGUP)) {
+		shutdown(fd, SHUT_RDWR);
+		server->running = false;
+		log_errorf("server socket recieved an error: %s", strerror(errno));
 		return -1;
 	}
 
-	addr.unix.sun_family = AF_UNIX;
-	strncpy(addr.unix.sun_path, path, sizeof addr.unix.sun_path - 1);
-	socklen_t size = offsetof(struct sockaddr_un, sun_path) + strlen(addr.unix.sun_path);
-	if (bind(fd, &addr.generic, size) == -1) {
-		log_errorf("could not bind socket: %s", strerror(errno));
-		close(fd);
-		return -1;
-	}
-	if (listen(fd, LISTEN_BACKLOG) == -1) {
-		log_errorf("could not listen on socket: %s", strerror(errno));
-		close(fd);
-		return -1;
-	}
-	struct group *videogrp = getgrnam("video");
-	if (videogrp != NULL) {
-		if (chown(path, 0, videogrp->gr_gid) == -1) {
-			log_errorf("could not chown socket to video group: %s", strerror(errno));
-		} else if (chmod(path, 0770) == -1) {
-			log_errorf("could not chmod socket: %s", strerror(errno));
+	if (mask & EVENT_READABLE) {
+		int new_fd = accept(fd, NULL, NULL);
+		if (fd == -1) {
+			log_errorf("could not accept client connection: %s", strerror(errno));
+			return 0;
 		}
-	} else {
-		log_errorf("could not get video group: %s", strerror(errno));
-	}
-	if (poller_add_fd(&server->poller, fd, EVENT_READABLE, server_handle_connection, server) ==
-	    NULL) {
-		log_errorf("could not add socket to poller: %s", strerror(errno));
-		close(fd);
-		return -1;
+
+		if (server_add_client(server, new_fd) == -1) {
+			return 0;
+		}
 	}
 	return 0;
 }

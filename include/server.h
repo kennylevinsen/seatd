@@ -20,7 +20,7 @@ void server_finish(struct server *server);
 
 struct seat *server_get_seat(struct server *server, const char *seat_name);
 
-int server_listen(struct server *server, const char *path);
+int server_handle_connection(int fd, uint32_t mask, void *data);
 int server_add_client(struct server *server, int fd);
 
 #endif

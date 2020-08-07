@@ -1,5 +1,7 @@
 #include <errno.h>
+#include <grp.h>
 #include <poll.h>
+#include <pwd.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,10 +15,44 @@
 #include "poller.h"
 #include "server.h"
 
-int main(int argc, char *argv[]) {
-	(void)argc;
-	(void)argv;
+#define LISTEN_BACKLOG 16
 
+static int open_socket(char *path, int uid, int gid) {
+	union {
+		struct sockaddr_un unix;
+		struct sockaddr generic;
+	} addr = {{0}};
+	int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+	if (fd == -1) {
+		log_errorf("could not create socket: %s", strerror(errno));
+		return -1;
+	}
+
+	addr.unix.sun_family = AF_UNIX;
+	strncpy(addr.unix.sun_path, path, sizeof addr.unix.sun_path - 1);
+	socklen_t size = offsetof(struct sockaddr_un, sun_path) + strlen(addr.unix.sun_path);
+	if (bind(fd, &addr.generic, size) == -1) {
+		log_errorf("could not bind socket: %s", strerror(errno));
+		close(fd);
+		return -1;
+	}
+	if (listen(fd, LISTEN_BACKLOG) == -1) {
+		log_errorf("could not listen on socket: %s", strerror(errno));
+		close(fd);
+		return -1;
+	}
+	if (uid != 0 || gid != 0) {
+		if (fchown(fd, uid, gid) == -1) {
+			log_errorf("could not chown socket to uid %d, gid %d: %s", uid, gid,
+				   strerror(errno));
+		} else if (fchmod(fd, 0770) == -1) {
+			log_errorf("could not chmod socket: %s", strerror(errno));
+		}
+	}
+	return fd;
+}
+
+int main(int argc, char *argv[]) {
 	char *loglevel = getenv("SEATD_LOGLEVEL");
 	enum log_level level = LOGLEVEL_ERROR;
 	if (loglevel != NULL) {
@@ -30,23 +66,82 @@ int main(int argc, char *argv[]) {
 	}
 	log_init(level);
 
+	const char *usage = "Usage: seatd [options]\n"
+			    "\n"
+			    "  -h		Show this help message\n"
+			    "  -u <user>	User to own the seatd socket\n"
+			    "  -g <group>	Group to own the seatd socket\n"
+			    "  -s <path>	Where to create the seatd socket\n"
+			    "  -v		Show the version number\n"
+			    "\n";
+
+	int c;
+	int uid = 0, gid = 0;
+	char *socket_path = getenv("SEATD_SOCK");
+	while ((c = getopt(argc, argv, "vhs:g:u:")) != -1) {
+		switch (c) {
+		case 's':
+			socket_path = optarg;
+			break;
+		case 'u': {
+			struct passwd *pw = getpwnam(optarg);
+			if (pw == NULL) {
+				fprintf(stderr, "Could not find user by name '%s'.\n", optarg);
+				return 1;
+			} else {
+				uid = pw->pw_uid;
+			}
+			break;
+		}
+		case 'g': {
+			struct group *gr = getgrnam(optarg);
+			if (gr == NULL) {
+				fprintf(stderr, "Could not find group by name '%s'.\n", optarg);
+				return 1;
+			} else {
+				gid = gr->gr_gid;
+			}
+			break;
+		}
+		case 'v':
+			printf("seatd version %s\n", SEATD_VERSION);
+			return 0;
+		case 'h':
+			printf("%s", usage);
+			return 0;
+		case '?':
+			fprintf(stderr, "Try '%s -h' for more information.\n", argv[0]);
+			return 1;
+		default:
+			abort();
+		}
+	}
+
+	if (socket_path == NULL) {
+		socket_path = "/run/seatd.sock";
+		struct stat st;
+		if (stat(socket_path, &st) == 0) {
+			log_info("removing leftover seatd socket");
+			unlink(socket_path);
+		}
+	}
+
 	struct server server = {0};
 	if (server_init(&server) == -1) {
 		log_errorf("server_create failed: %s", strerror(errno));
 		return 1;
 	}
-	char *path = getenv("SEATD_SOCK");
-	if (path == NULL) {
-		path = "/run/seatd.sock";
-		struct stat st;
-		if (stat(path, &st) == 0) {
-			log_info("removing leftover seatd socket");
-			unlink(path);
-		}
-	}
 
-	if (server_listen(&server, path) == -1) {
-		log_errorf("server_listen failed: %s", strerror(errno));
+	int socket_fd = open_socket(socket_path, uid, gid);
+	if (socket_fd == -1) {
+		log_errorf("could not create server socket: %s", strerror(errno));
+		server_finish(&server);
+		return 1;
+	}
+	if (poller_add_fd(&server.poller, socket_fd, EVENT_READABLE, server_handle_connection,
+			  &server) == NULL) {
+		log_errorf("could not add socket to poller: %s", strerror(errno));
+		close(socket_fd);
 		server_finish(&server);
 		return 1;
 	}
@@ -61,6 +156,6 @@ int main(int argc, char *argv[]) {
 	}
 
 	server_finish(&server);
-	unlink(path);
+	unlink(socket_path);
 	return 0;
 }

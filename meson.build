@@ -27,6 +27,7 @@ add_project_arguments(
 		'-Wl,--exclude-libs=ALL',
 		'-D_XOPEN_SOURCE=700',
 		'-D__BSD_VISIBLE',
+		'-DSEATD_VERSION="@0@"'.format(meson.project_version()),
 	],
 	language: 'c',
 )
