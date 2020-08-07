@@ -1,0 +1,11 @@
+[Unit]
+Description=Seat management daemon
+
+[Service]
+Type=simple
+ExecStart=seatd -g video
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
