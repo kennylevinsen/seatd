@@ -98,15 +98,17 @@ endif
 
 logind_provider = ''
 if get_option('logind').enabled()
-	logind = dependency('libsystemd', required: false)
+	# Check for libelogind first, as elogind may provide a libsystemd wrapper
+	# which can cause issues.
+	logind = dependency('libelogind', required: false)
 	add_project_arguments('-DLOGIND_ENABLED=1', language: 'c')
 	if logind.found()
-		add_project_arguments('-DHAVE_SYSTEMD=1', language: 'c')
-		logind_provider = 'systemd'
-	else
-		logind = dependency('libelogind')
 		add_project_arguments('-DHAVE_ELOGIND=1', language: 'c')
 		logind_provider = 'elogind'
+	else
+		logind = dependency('libsystemd')
+		add_project_arguments('-DHAVE_SYSTEMD=1', language: 'c')
+		logind_provider = 'systemd'
 	endif
 
 	private_files += [
