@@ -4,6 +4,7 @@ packages:
    - linux-headers
    - clang
    - clang-analyzer
+   - scdoc
 sources:
    - https://git.sr.ht/~kennylevinsen/seatd
 tasks:
