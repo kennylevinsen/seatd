@@ -42,10 +42,10 @@ static int open_socket(char *path, int uid, int gid) {
 		return -1;
 	}
 	if (uid != 0 || gid != 0) {
-		if (fchown(fd, uid, gid) == -1) {
+		if (chown(path, uid, gid) == -1) {
 			log_errorf("could not chown socket to uid %d, gid %d: %s", uid, gid,
 				   strerror(errno));
-		} else if (fchmod(fd, 0770) == -1) {
+		} else if (chmod(path, 0770) == -1) {
 			log_errorf("could not chmod socket: %s", strerror(errno));
 		}
 	}
