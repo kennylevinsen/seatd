@@ -26,6 +26,7 @@
 #include "backend.h"
 #include "drm.h"
 #include "libseat.h"
+#include "log.h"
 
 struct backend_logind {
 	struct libseat base;
@@ -690,6 +691,22 @@ error:
 	return false;
 }
 
+static int set_type(struct backend_logind *backend, const char *type) {
+	sd_bus_message *msg = NULL;
+	sd_bus_error error = SD_BUS_ERROR_NULL;
+
+	int ret = sd_bus_call_method(backend->bus, "org.freedesktop.login1", backend->path,
+				     "org.freedesktop.login1.Session", "SetType", &error, &msg, "s",
+				     type);
+	if (ret < 0) {
+		log_errorf("unable to set session type: %s", error.message);
+	}
+
+	sd_bus_error_free(&error);
+	sd_bus_message_unref(msg);
+	return ret;
+}
+
 static struct libseat *logind_open_seat(struct libseat_seat_listener *listener, void *data) {
 	struct backend_logind *backend = calloc(1, sizeof(struct backend_logind));
 	if (backend == NULL) {
@@ -735,6 +752,11 @@ static struct libseat *logind_open_seat(struct libseat_seat_listener *listener, 
 		if (poll_connection(backend, -1) == -1) {
 			goto error;
 		}
+	}
+
+	const char *env = getenv("XDG_SESSION_TYPE");
+	if (env != NULL) {
+		set_type(backend, env);
 	}
 
 	backend->initial_setup = true;
