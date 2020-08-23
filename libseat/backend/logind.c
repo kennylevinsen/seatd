@@ -146,7 +146,7 @@ static int close_device(struct libseat *base, int device_id) {
 
 static int switch_session(struct libseat *base, int s) {
 	struct backend_logind *session = backend_logind_from_libseat_backend(base);
-	if (s >= UINT16_MAX || s < 0) {
+	if (s < 0) {
 		errno = EINVAL;
 		return -1;
 	}
