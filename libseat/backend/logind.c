@@ -538,51 +538,6 @@ static bool add_signal_matches(struct backend_logind *backend) {
 	return true;
 }
 
-static bool contains_str(const char *needle, const char **haystack) {
-	for (int i = 0; haystack[i]; i++) {
-		if (strcmp(haystack[i], needle) == 0) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
-static bool get_greeter_session(char **session_id) {
-	char *class = NULL;
-	char **user_sessions = NULL;
-	int user_session_count = sd_uid_get_sessions(getuid(), 1, &user_sessions);
-
-	if (user_session_count < 0) {
-		goto out;
-	}
-
-	if (user_session_count == 0) {
-		goto out;
-	}
-
-	for (int i = 0; i < user_session_count; ++i) {
-		int ret = sd_session_get_class(user_sessions[i], &class);
-		if (ret < 0) {
-			continue;
-		}
-
-		if (strcmp(class, "greeter") == 0) {
-			*session_id = strdup(user_sessions[i]);
-			goto out;
-		}
-	}
-
-out:
-	free(class);
-	for (int i = 0; i < user_session_count; ++i) {
-		free(user_sessions[i]);
-	}
-	free(user_sessions);
-
-	return *session_id != NULL;
-}
-
 static bool find_session_path(struct backend_logind *session) {
 	int ret;
 	sd_bus_message *msg = NULL;
@@ -638,7 +593,6 @@ out:
 static bool get_display_session(char **session_id) {
 	assert(session_id != NULL);
 	char *xdg_session_id = getenv("XDG_SESSION_ID");
-	char *state = NULL;
 
 	if (xdg_session_id) {
 		// This just checks whether the supplied session ID is valid
@@ -646,48 +600,30 @@ static bool get_display_session(char **session_id) {
 			goto error;
 		}
 		*session_id = strdup(xdg_session_id);
-		return true;
+		goto success;
 	}
 
 	// If there's a session active for the current process then just use
 	// that
 	int ret = sd_pid_get_session(getpid(), session_id);
 	if (ret == 0) {
-		return true;
+		goto success;
 	}
 
 	// Find any active sessions for the user if the process isn't part of an
 	// active session itself
 	ret = sd_uid_get_display(getuid(), session_id);
-	if (ret < 0 && ret != -ENODATA) {
-		goto error;
-	}
-
-	if (ret != 0 && !get_greeter_session(session_id)) {
-		goto error;
-	}
-
-	assert(*session_id != NULL);
-
-	// Check that the session is active
-	ret = sd_session_get_state(*session_id, &state);
 	if (ret < 0) {
 		goto error;
 	}
 
-	const char *active_states[] = {"active", "online", NULL};
-	if (!contains_str(state, active_states)) {
-		goto error;
-	}
-
-	free(state);
+success:
+	assert(*session_id != NULL);
 	return true;
 
 error:
-	free(state);
 	free(*session_id);
 	*session_id = NULL;
-
 	return false;
 }
 
