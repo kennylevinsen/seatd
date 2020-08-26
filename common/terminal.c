@@ -17,9 +17,10 @@
 #elif defined(__FreeBSD__)
 #include <sys/consio.h>
 #include <sys/kbio.h>
+#include <termios.h>
 #define TTYF	  "/dev/ttyv%d"
 #define K_ENABLE  K_XLATE
-#define K_DISABLE K_CODE
+#define K_DISABLE K_RAW
 #define FRSIG	  SIGIO
 #else
 #error Unsupported platform
@@ -111,6 +112,22 @@ int terminal_set_keyboard(int fd, bool enable) {
 		log_errorf("could not set KD keyboard mode: %s", strerror(errno));
 		return -1;
 	}
+#if defined(__FreeBSD__)
+	struct termios tios;
+	if (tcgetattr(fd, &tios) == -1) {
+		log_errorf("could not set get terminal mode: %s", strerror(errno));
+		return -1;
+	}
+	if (enable) {
+		cfmakesane(&tios);
+	} else {
+		cfmakeraw(&tios);
+	}
+	if (tcsetattr(fd, TCSAFLUSH, &tios) == -1) {
+		log_errorf("could not set terminal mode: %s", strerror(errno));
+		return -1;
+	}
+#endif
 	return 0;
 }
 
