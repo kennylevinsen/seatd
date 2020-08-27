@@ -41,9 +41,6 @@ client-side of the protocol.
 |  SEATD_SOCK
 :  File path
 :  Informs libseat of the socket location, needed if it differs from `/run/seatd.sock`
-|  LIBSEAT_LOGLEVEL
-:  silent, error, info, debug
-:  Sets the libseat log level. Defaults to "silent"
 |  SEATD_LOGLEVEL
 :  silent, error, info, debug
 :  Sets the seatd log level. Defaults to "error"
