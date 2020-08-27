@@ -32,6 +32,7 @@ int main(int argc, char *argv[]) {
 		.enable_seat = handle_enable,
 		.disable_seat = handle_disable,
 	};
+	libseat_set_log_level(LIBSEAT_LOG_LEVEL_DEBUG);
 	struct libseat *backend = libseat_open_seat(&listener, &active);
 	fprintf(stderr, "libseat_open_seat(listener: %p, userdata: %p) = %p\n", (void *)&listener,
 		(void *)&active, (void *)backend);
