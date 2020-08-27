@@ -12,7 +12,7 @@ const long NSEC_PER_SEC = 1000000000;
 
 static void log_stderr(enum libseat_log_level level, const char *fmt, va_list args);
 
-static enum libseat_log_level current_log_level;
+static enum libseat_log_level current_log_level = LIBSEAT_LOG_LEVEL_SILENT;
 static libseat_log_func current_log_handler = log_stderr;
 static struct timespec start_time = {-1, -1};
 static bool colored = false;
@@ -64,12 +64,11 @@ static void log_stderr(enum libseat_log_level level, const char *fmt, va_list ar
 	fprintf(stderr, "%s", postfix);
 }
 
-void log_init(enum libseat_log_level level) {
+void log_init(void) {
 	if (start_time.tv_sec >= 0) {
 		return;
 	}
 	clock_gettime(CLOCK_MONOTONIC, &start_time);
-	current_log_level = level;
 	colored = isatty(STDERR_FILENO);
 }
 
@@ -92,4 +91,8 @@ void libseat_set_log_handler(libseat_log_func handler) {
 		handler = log_stderr;
 	}
 	current_log_handler = handler;
+}
+
+void libseat_set_log_level(enum libseat_log_level level) {
+	current_log_level = level;
 }

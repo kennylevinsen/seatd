@@ -43,7 +43,7 @@
 #define log_debug(str)
 #endif
 
-void log_init(enum libseat_log_level level);
+void log_init(void);
 void _logf(enum libseat_log_level level, const char *fmt, ...) ATTRIB_PRINTF(2, 3);
 
 #endif

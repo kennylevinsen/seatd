@@ -64,7 +64,8 @@ int main(int argc, char *argv[]) {
 			level = LIBSEAT_LOG_LEVEL_DEBUG;
 		}
 	}
-	log_init(level);
+	log_init();
+	libseat_set_log_level(level);
 
 	const char *usage = "Usage: seatd [options]\n"
 			    "\n"

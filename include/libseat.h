@@ -160,4 +160,12 @@ typedef void (*libseat_log_func)(enum libseat_log_level level, const char *forma
  */
 void libseat_set_log_handler(libseat_log_func handler);
 
+/*
+ * Sets the libseat log level.
+ *
+ * Only log messages whose level is lower or equal than the current log level
+ * will be processed, others will be ignored.
+ */
+void libseat_set_log_level(enum libseat_log_level level);
+
 #endif

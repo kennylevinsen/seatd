@@ -37,7 +37,7 @@ struct libseat *libseat_open_seat(struct libseat_seat_listener *listener, void *
 		return NULL;
 	}
 
-	log_init(LIBSEAT_LOG_LEVEL_SILENT);
+	log_init();
 
 	char *backend_type = getenv("LIBSEAT_BACKEND");
 	struct libseat *backend = NULL;
