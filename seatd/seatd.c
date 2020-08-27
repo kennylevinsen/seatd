@@ -54,14 +54,14 @@ static int open_socket(char *path, int uid, int gid) {
 
 int main(int argc, char *argv[]) {
 	char *loglevel = getenv("SEATD_LOGLEVEL");
-	enum log_level level = LOGLEVEL_ERROR;
+	enum libseat_log_level level = LIBSEAT_LOG_LEVEL_ERROR;
 	if (loglevel != NULL) {
 		if (strcmp(loglevel, "silent") == 0) {
-			level = LOGLEVEL_SILENT;
+			level = LIBSEAT_LOG_LEVEL_SILENT;
 		} else if (strcmp(loglevel, "info") == 0) {
-			level = LOGLEVEL_INFO;
+			level = LIBSEAT_LOG_LEVEL_INFO;
 		} else if (strcmp(loglevel, "debug") == 0) {
-			level = LOGLEVEL_DEBUG;
+			level = LIBSEAT_LOG_LEVEL_DEBUG;
 		}
 	}
 	log_init(level);
