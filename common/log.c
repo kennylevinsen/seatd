@@ -10,7 +10,10 @@
 
 const long NSEC_PER_SEC = 1000000000;
 
+static void log_stderr(enum libseat_log_level level, const char *fmt, va_list args);
+
 static enum libseat_log_level current_log_level;
+static libseat_log_func current_log_handler = log_stderr;
 static struct timespec start_time = {-1, -1};
 static bool colored = false;
 
@@ -37,22 +40,7 @@ static void timespec_sub(struct timespec *r, const struct timespec *a, const str
 	}
 }
 
-void log_init(enum libseat_log_level level) {
-	if (start_time.tv_sec >= 0) {
-		return;
-	}
-	clock_gettime(CLOCK_MONOTONIC, &start_time);
-	current_log_level = level;
-	colored = isatty(STDERR_FILENO);
-}
-
-void _logf(enum libseat_log_level level, const char *fmt, ...) {
-	int stored_errno = errno;
-	va_list args;
-	if (level > current_log_level) {
-		return;
-	}
-
+static void log_stderr(enum libseat_log_level level, const char *fmt, va_list args) {
 	struct timespec ts = {0};
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	timespec_sub(&ts, &ts, &start_time);
@@ -71,10 +59,37 @@ void _logf(enum libseat_log_level level, const char *fmt, ...) {
 	fprintf(stderr, "%02d:%02d:%02d.%03ld %s ", (int)(ts.tv_sec / 60 / 60),
 		(int)(ts.tv_sec / 60 % 60), (int)(ts.tv_sec % 60), ts.tv_nsec / 1000000, prefix);
 
-	va_start(args, fmt);
 	vfprintf(stderr, fmt, args);
-	va_end(args);
 
 	fprintf(stderr, "%s", postfix);
+}
+
+void log_init(enum libseat_log_level level) {
+	if (start_time.tv_sec >= 0) {
+		return;
+	}
+	clock_gettime(CLOCK_MONOTONIC, &start_time);
+	current_log_level = level;
+	colored = isatty(STDERR_FILENO);
+}
+
+void _logf(enum libseat_log_level level, const char *fmt, ...) {
+	int stored_errno = errno;
+	va_list args;
+	if (level > current_log_level) {
+		return;
+	}
+
+	va_start(args, fmt);
+	current_log_handler(level, fmt, args);
+	va_end(args);
+
 	errno = stored_errno;
+}
+
+void libseat_set_log_handler(libseat_log_func handler) {
+	if (handler == NULL) {
+		handler = log_stderr;
+	}
+	current_log_handler = handler;
 }

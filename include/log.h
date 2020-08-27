@@ -3,6 +3,8 @@
 
 #include <stdarg.h>
 
+#include "libseat.h"
+
 #ifdef __GNUC__
 #define ATTRIB_PRINTF(start, end) __attribute__((format(printf, start, end)))
 #else
@@ -40,14 +42,6 @@
 #define log_debugf(fmt, ...)
 #define log_debug(str)
 #endif
-
-enum libseat_log_level {
-	LIBSEAT_LOG_LEVEL_SILENT = 0,
-	LIBSEAT_LOG_LEVEL_ERROR = 1,
-	LIBSEAT_LOG_LEVEL_INFO = 2,
-	LIBSEAT_LOG_LEVEL_DEBUG = 3,
-	LIBSEAT_LOG_LEVEL_LAST,
-};
 
 void log_init(enum libseat_log_level level);
 void _logf(enum libseat_log_level level, const char *fmt, ...) ATTRIB_PRINTF(2, 3);

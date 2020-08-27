@@ -135,4 +135,29 @@ int libseat_get_fd(struct libseat *seat);
  */
 int libseat_dispatch(struct libseat *seat, int timeout);
 
+/*
+ * A log level.
+ */
+enum libseat_log_level {
+	LIBSEAT_LOG_LEVEL_SILENT = 0,
+	LIBSEAT_LOG_LEVEL_ERROR = 1,
+	LIBSEAT_LOG_LEVEL_INFO = 2,
+	LIBSEAT_LOG_LEVEL_DEBUG = 3,
+	LIBSEAT_LOG_LEVEL_LAST,
+};
+
+/*
+ * A function that handles log messages.
+ */
+typedef void (*libseat_log_func)(enum libseat_log_level level, const char *format, va_list args);
+
+/*
+ * Sets the handler for log messages.
+ *
+ * The handler will be called for each message whose level is lower or equal
+ * to the current log level. If the handler is NULL, the handler is reset to
+ * the default.
+ */
+void libseat_set_log_handler(libseat_log_func handler);
+
 #endif
