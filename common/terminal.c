@@ -63,7 +63,11 @@ int terminal_current_vt(int fd) {
 		log_errorf("could not retrieve VT state: %s", strerror(errno));
 		return -1;
 	}
-	return vt;
+	if (vt < 1) {
+		log_errorf("invalid vt: %d", vt);
+		return -1;
+	}
+	return vt - 1;
 #else
 #error Unsupported platform
 #endif
