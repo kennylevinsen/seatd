@@ -42,13 +42,13 @@ struct libseat *libseat_open_seat(struct libseat_seat_listener *listener, void *
 	char *backend_type = getenv("LIBSEAT_BACKEND");
 	struct libseat *backend = NULL;
 	for (const struct named_backend *iter = impls; iter->backend != NULL; iter++) {
-		log_debugf("libseat_open_seat: trying backend '%s'", iter->name);
 		if (backend_type != NULL && strcmp(backend_type, iter->name) != 0) {
 			continue;
 		}
+		log_infof("Trying backend '%s'", iter->name);
 		backend = iter->backend->open_seat(listener, data);
 		if (backend != NULL) {
-			log_infof("libseat_open_seat: seat opened with backend '%s'", iter->name);
+			log_infof("Seat opened with backend '%s'", iter->name);
 			break;
 		}
 	}
