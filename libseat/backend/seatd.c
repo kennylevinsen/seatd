@@ -89,12 +89,14 @@ static struct backend_seatd *backend_seatd_from_libseat_backend(struct libseat *
 }
 
 static void handle_enable_seat(struct backend_seatd *backend) {
+	log_info("Enabling seat");
 	if (backend->seat_listener != NULL && backend->seat_listener->enable_seat != NULL) {
 		backend->seat_listener->enable_seat(&backend->base, backend->seat_listener_data);
 	}
 }
 
 static void handle_disable_seat(struct backend_seatd *backend) {
+	log_info("Disabling seat");
 	if (backend->seat_listener != NULL && backend->seat_listener->disable_seat != NULL) {
 		backend->seat_listener->disable_seat(&backend->base, backend->seat_listener_data);
 	}
@@ -103,11 +105,22 @@ static void handle_disable_seat(struct backend_seatd *backend) {
 static size_t read_header(struct connection *connection, uint16_t expected_opcode) {
 	struct proto_header header;
 	if (connection_get(connection, &header, sizeof header) == -1) {
+		log_error("Received invalid message: header too short");
 		return SIZE_MAX;
 	}
 	if (header.opcode != expected_opcode) {
 		connection_restore(connection, sizeof header);
-		errno = EBADMSG;
+		struct proto_server_error msg;
+		if (header.opcode != SERVER_ERROR) {
+			log_errorf("Received invalid message: expected opcode %d, received opcode %d",
+				   expected_opcode, header.opcode);
+			errno = EBADMSG;
+		} else if (connection_get(connection, &msg, sizeof msg) == -1) {
+			log_error("Received invalid message");
+			errno = EBADMSG;
+		} else {
+			errno = msg.error_code;
+		}
 		return SIZE_MAX;
 	}
 
@@ -161,7 +174,9 @@ static int dispatch_pending(struct backend_seatd *backend, int *opcode) {
 		switch (header.opcode) {
 		case SERVER_DISABLE_SEAT:
 		case SERVER_ENABLE_SEAT:
-			queue_event(backend, header.opcode);
+			if (queue_event(backend, header.opcode) == -1) {
+				return -1;
+			}
 			break;
 		default:
 			if (opcode != NULL &&
@@ -193,7 +208,10 @@ static int poll_connection(struct backend_seatd *backend, int timeout) {
 	int len = 0;
 	if (fd.revents & POLLIN) {
 		len = connection_read(&backend->connection);
-		if (len == 0 || (len == -1 && errno != EAGAIN)) {
+		if (len == 0) {
+			errno = EIO;
+			return -1;
+		} else if (len == -1 && errno != EAGAIN) {
 			return -1;
 		}
 	}
@@ -203,33 +221,20 @@ static int poll_connection(struct backend_seatd *backend, int timeout) {
 
 static int dispatch(struct backend_seatd *backend) {
 	if (connection_flush(&backend->connection) == -1) {
+		log_errorf("Could not flush connection: %s", strerror(errno));
 		return -1;
 	}
-	int opcode = 0;
-	while (dispatch_pending(backend, &opcode) == 0 && opcode == 0) {
+	int opcode = 0, res = 0;
+	while ((res = dispatch_pending(backend, &opcode)) == 0 && opcode == 0) {
 		if (poll_connection(backend, -1) == -1) {
+			log_errorf("Could not poll connection: %s", strerror(errno));
 			return -1;
 		}
 	}
+	if (res == -1) {
+		return -1;
+	}
 	return 0;
-}
-
-static void check_error(struct connection *connection) {
-	struct proto_header header;
-	if (connection_get(connection, &header, sizeof header) == -1) {
-		return;
-	}
-	if (header.opcode != SERVER_ERROR) {
-		errno = EBADMSG;
-		return;
-	}
-
-	struct proto_server_error msg;
-	if (connection_get(connection, &msg, sizeof msg) == -1) {
-		return;
-	}
-
-	errno = msg.error_code;
 }
 
 static int get_fd(struct libseat *base) {
@@ -255,6 +260,7 @@ static int dispatch_background(struct libseat *base, int timeout) {
 	if (read > 0) {
 		dispatched += dispatch_pending(backend, NULL);
 	} else if (read == -1 && errno != EAGAIN) {
+		log_errorf("Could not read from connection: %s", strerror(errno));
 		return -1;
 	}
 
@@ -301,32 +307,34 @@ static struct libseat *_open_seat(struct libseat_seat_listener *listener, void *
 
 	size_t size = read_header(&backend->connection, SERVER_SEAT_OPENED);
 	if (size == SIZE_MAX) {
-		check_error(&backend->connection);
 		destroy(backend);
 		return NULL;
 	}
 
 	struct proto_server_seat_opened rmsg;
 	if (sizeof rmsg > size) {
-		errno = EBADMSG;
-		return NULL;
+		goto badmsg_error;
 	}
 
 	if (connection_get(&backend->connection, &rmsg, sizeof rmsg) == -1) {
-		return NULL;
+		goto badmsg_error;
 	};
 
 	if (sizeof rmsg + rmsg.seat_name_len > size ||
 	    rmsg.seat_name_len >= sizeof backend->seat_name) {
-		errno = EBADMSG;
-		return NULL;
+		goto badmsg_error;
 	}
 
 	if (connection_get(&backend->connection, backend->seat_name, rmsg.seat_name_len) == -1) {
-		return NULL;
+		goto badmsg_error;
 	};
 
 	return &backend->base;
+
+badmsg_error:
+	log_error("Received invalid message");
+	errno = EBADMSG;
+	return NULL;
 }
 
 static struct libseat *open_seat(struct libseat_seat_listener *listener, void *data) {
@@ -354,7 +362,6 @@ static int close_seat(struct libseat *base) {
 
 	size_t size = read_header(&backend->connection, SERVER_SEAT_CLOSED);
 	if (size == SIZE_MAX) {
-		check_error(&backend->connection);
 		destroy(backend);
 		return -1;
 	}
@@ -393,26 +400,29 @@ static int open_device(struct libseat *base, const char *path, int *fd) {
 
 	size_t size = read_header(&backend->connection, SERVER_DEVICE_OPENED);
 	if (size == SIZE_MAX) {
-		check_error(&backend->connection);
 		return -1;
 	}
 
 	struct proto_server_device_opened rmsg;
 	if (sizeof rmsg > size) {
-		errno = EBADMSG;
-		return -1;
+		goto badmsg_error;
 	}
 	if (connection_get(&backend->connection, &rmsg, sizeof rmsg) == -1) {
-		return -1;
+		goto badmsg_error;
 	}
 
 	int received_fd = connection_get_fd(&backend->connection);
 	if (received_fd == -1) {
-		return -1;
+		goto badmsg_error;
 	}
 
 	*fd = received_fd;
 	return rmsg.device_id;
+
+badmsg_error:
+	log_error("Received invalid message");
+	errno = EBADMSG;
+	return -1;
 }
 
 static int close_device(struct libseat *base, int device_id) {
@@ -437,24 +447,26 @@ static int close_device(struct libseat *base, int device_id) {
 
 	size_t size = read_header(&backend->connection, SERVER_DEVICE_CLOSED);
 	if (size == SIZE_MAX) {
-		check_error(&backend->connection);
 		return -1;
 	}
 
 	struct proto_server_device_closed rmsg;
 	if (sizeof rmsg > size) {
-		errno = EBADMSG;
-		return -1;
+		goto badmsg_error;
 	}
 	if (connection_get(&backend->connection, &rmsg, sizeof rmsg) == -1) {
-		return -1;
+		goto badmsg_error;
 	}
 	if (rmsg.device_id != device_id) {
-		errno = EBADMSG;
-		return -1;
+		goto badmsg_error;
 	}
 
 	return 0;
+
+badmsg_error:
+	log_error("Received invalid message");
+	errno = EBADMSG;
+	return -1;
 }
 
 static int switch_session(struct libseat *base, int session) {
@@ -531,11 +543,13 @@ static int set_deathsig(int signal) {
 static struct libseat *builtin_open_seat(struct libseat_seat_listener *listener, void *data) {
 	int fds[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == -1) {
+		log_errorf("Could not create socket pair: %s", strerror(errno));
 		return NULL;
 	}
 
 	pid_t pid = fork();
 	if (pid == -1) {
+		log_errorf("Could not fork: %s", strerror(errno));
 		close(fds[0]);
 		close(fds[1]);
 		return NULL;
@@ -544,16 +558,20 @@ static struct libseat *builtin_open_seat(struct libseat_seat_listener *listener,
 		int res = 0;
 		struct server server = {0};
 		if (server_init(&server) == -1) {
+			log_errorf("Could not init embedded seatd server: %s", strerror(errno));
 			res = 1;
 			goto error;
 		}
 		if (server_add_client(&server, fd) == -1) {
+			log_errorf("Could not add client to embedded seatd server: %s",
+				   strerror(errno));
 			res = 1;
 			goto server_error;
 		}
 		set_deathsig(SIGTERM);
 		while (server.running) {
 			if (poller_poll(&server.poller) == -1) {
+				log_errorf("Could not poll server socket: %s", strerror(errno));
 				res = 1;
 				goto server_error;
 			}
