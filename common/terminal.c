@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -10,7 +11,6 @@
 #if defined(__linux__)
 #include <linux/kd.h>
 #include <linux/vt.h>
-#define TTYF	  "/dev/tty%d"
 #define K_ENABLE  K_UNICODE
 #define K_DISABLE K_OFF
 #define FRSIG	  0
@@ -18,7 +18,6 @@
 #include <sys/consio.h>
 #include <sys/kbio.h>
 #include <termios.h>
-#define TTYF	  "/dev/ttyv%d"
 #define K_ENABLE  K_XLATE
 #define K_DISABLE K_RAW
 #define FRSIG	  SIGIO
@@ -29,11 +28,87 @@
 #include "log.h"
 #include "terminal.h"
 
-#define TTYPATHLEN 64
+#define TTYPATHLEN 16
+
+#if defined(__FreeBSD__)
+static int get_tty_path(int tty, char path[static TTYPATHLEN]) {
+	assert(tty >= 0);
+
+	const char prefix[] = "/dev/ttyv";
+	const size_t prefix_len = sizeof(prefix) - 1;
+	strcpy(path, prefix);
+
+	// The FreeBSD tty name is constructed in the kernel as follows:
+	//
+	//	static void
+	//	vtterm_cnprobe(struct terminal *tm, struct consdev *cp)
+	//	{
+	//		...
+	//		struct vt_window *vw = tm->tm_softc;
+	//		...
+	//		sprintf(cp->cn_name, "ttyv%r", VT_UNIT(vw));
+	//		...
+	//	}
+	//
+	// With %r being a FreeBSD-internal radix formatter (seemingly set to
+	// base 32), and VT_UNIT expanding to the following to extract the
+	// internal VT number (which is one less than the external VT number):
+	//
+	//	((vw)->vw_device->vd_unit * VT_MAXWINDOWS + (vw)->vw_number)
+	//
+	// As the %r formatter is kernel-internal, we implement the base 32
+	// encoding ourselves below.
+
+	size_t offset = prefix_len;
+	if (tty == 0) {
+		path[offset++] = '0';
+		path[offset++] = '\0';
+		return 0;
+	}
+
+	const int base = 32;
+	for (int remaining = tty; remaining > 0; remaining /= base, offset++) {
+		// Return early if the buffer is too small.
+		if (offset + 1 >= TTYPATHLEN) {
+			errno = ENOMEM;
+			return -1;
+		}
+
+		const int value = remaining % base;
+		if (value >= 10) {
+			path[offset] = 'a' + value - 10;
+		} else {
+			path[offset] = '0' + value;
+		}
+	}
+
+	const size_t num_len = offset - prefix_len;
+	for (size_t i = 0; i < num_len / 2; i++) {
+		const size_t p1 = prefix_len + i;
+		const size_t p2 = offset - 1 - i;
+		const char tmp = path[p1];
+		path[p1] = path[p2];
+		path[p2] = tmp;
+	}
+
+	path[offset++] = '\0';
+	return 0;
+}
+#elif defined(__linux__)
+static int get_tty_path(int tty, char path[static TTYPATHLEN]) {
+	assert(tty >= 0);
+	if (snprintf(path, TTYPATHLEN, "/dev/tty%d", tty) == -1) {
+		return -1;
+	}
+	return 0;
+}
+#else
+#error Unsupported platform
+#endif
 
 int terminal_open(int vt) {
 	char path[TTYPATHLEN];
-	if (snprintf(path, TTYPATHLEN, TTYF, vt) == -1) {
+	if (get_tty_path(vt, path) == -1) {
 		log_errorf("could not generate tty path: %s", strerror(errno));
 		return -1;
 	}
