@@ -351,7 +351,7 @@ static int resume_device(sd_bus_message *msg, void *userdata, sd_bus_error *ret_
 	return 0;
 }
 
-static int session_properties_changed(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
+static int properties_changed(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
 	(void)ret_error;
 	struct backend_logind *session = userdata;
 	int ret = 0;
@@ -367,7 +367,9 @@ static int session_properties_changed(sd_bus_message *msg, void *userdata, sd_bu
 		goto error;
 	}
 
-	if (strcmp(interface, "org.freedesktop.login1.Session") != 0) {
+	bool is_session = strcmp(interface, "org.freedesktop.login1.Session") == 0;
+	bool is_seat = strcmp(interface, "org.freedesktop.login1.Seat") == 0;
+	if (!is_session || !is_seat) {
 		// not interesting for us; ignore
 		return 0;
 	}
@@ -385,21 +387,26 @@ static int session_properties_changed(sd_bus_message *msg, void *userdata, sd_bu
 			goto error;
 		}
 
-		if (strcmp(s, "Active") == 0) {
+		if ((is_session && strcmp(s, "Active") == 0) ||
+		    (is_seat && strcmp(s, "CanGraphical"))) {
 			int ret;
 			ret = sd_bus_message_enter_container(msg, 'v', "b");
 			if (ret < 0) {
 				goto error;
 			}
 
-			bool active;
-			ret = sd_bus_message_read_basic(msg, 'b', &active);
+			bool value;
+			ret = sd_bus_message_read_basic(msg, 'b', &value);
 			if (ret < 0) {
 				goto error;
 			}
 
-			log_debugf("Active state changed: %d", active);
-			set_active(session, active);
+			log_debugf("%s state changed: %d", s, value);
+			if (is_session) {
+				set_active(session, value);
+			} else {
+				session->can_graphical = value;
+			}
 			return 0;
 		} else {
 			sd_bus_message_skip(msg, "{sv}");
@@ -423,111 +430,34 @@ static int session_properties_changed(sd_bus_message *msg, void *userdata, sd_bu
 	// PropertiesChanged arg 3: changed properties without values
 	sd_bus_message_enter_container(msg, 'a', "s");
 	while ((ret = sd_bus_message_read_basic(msg, 's', &s)) > 0) {
-		if (strcmp(s, "Active") == 0) {
+		if ((is_session && strcmp(s, "Active") == 0) ||
+		    (is_seat && strcmp(s, "CanGraphical"))) {
 			sd_bus_error error = SD_BUS_ERROR_NULL;
-			bool active;
+			const char *obj = is_session ? "org.freedesktop.login1.Session"
+						     : "org.freedesktop.login1.Seat";
+			const char *field = is_session ? "Active" : "CanGraphical";
+			bool value;
 			ret = sd_bus_get_property_trivial(session->bus, "org.freedesktop.login1",
-							  session->path,
-							  "org.freedesktop.login1.Session",
-							  "Active", &error, 'b', &active);
+							  session->path, obj, field, &error, 'b',
+							  &value);
 			if (ret < 0) {
-				log_errorf("Could not get 'Active' property: %s", error.message);
+				log_errorf("Could not get '%s' property: %s", field, error.message);
 				return 0;
 			}
 
-			log_debugf("Active state changed: %d", active);
-			set_active(session, active);
+			log_debugf("%s state changed: %d", field, value);
+			if (is_session) {
+				set_active(session, value);
+			} else {
+				session->can_graphical = value;
+			}
 			return 0;
 		}
 	}
 
 error:
 	if (ret < 0) {
-		log_errorf("Could not parse D-Bus PropertiesChanged on session: %s", strerror(-ret));
-	}
-
-	return 0;
-}
-
-static int seat_properties_changed(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
-	(void)ret_error;
-	struct backend_logind *session = userdata;
-	int ret = 0;
-
-	if (session->has_drm > 0) {
-		return 0;
-	}
-
-	// PropertiesChanged arg 1: interface
-	const char *interface;
-	ret = sd_bus_message_read_basic(msg, 's', &interface); // skip path
-	if (ret < 0) {
-		goto error;
-	}
-
-	if (strcmp(interface, "org.freedesktop.login1.Seat") != 0) {
-		// not interesting for us; ignore
-		return 0;
-	}
-
-	// PropertiesChanged arg 2: changed properties with values
-	ret = sd_bus_message_enter_container(msg, 'a', "{sv}");
-	if (ret < 0) {
-		goto error;
-	}
-
-	const char *s;
-	while ((ret = sd_bus_message_enter_container(msg, 'e', "sv")) > 0) {
-		ret = sd_bus_message_read_basic(msg, 's', &s);
-		if (ret < 0) {
-			goto error;
-		}
-
-		if (strcmp(s, "CanGraphical") == 0) {
-			int ret;
-			ret = sd_bus_message_enter_container(msg, 'v', "b");
-			if (ret < 0) {
-				goto error;
-			}
-
-			ret = sd_bus_message_read_basic(msg, 'b', &session->can_graphical);
-			if (ret < 0) {
-				goto error;
-			}
-			log_debugf("CanGraphical state changed: %d", session->can_graphical);
-			return 0;
-		} else {
-			sd_bus_message_skip(msg, "{sv}");
-		}
-
-		ret = sd_bus_message_exit_container(msg);
-		if (ret < 0) {
-			goto error;
-		}
-	}
-
-	if (ret < 0) {
-		goto error;
-	}
-
-	ret = sd_bus_message_exit_container(msg);
-	if (ret < 0) {
-		goto error;
-	}
-
-	// PropertiesChanged arg 3: changed properties without values
-	sd_bus_message_enter_container(msg, 'a', "s");
-	while ((ret = sd_bus_message_read_basic(msg, 's', &s)) > 0) {
-		if (strcmp(s, "CanGraphical") == 0) {
-			session->can_graphical = sd_seat_can_graphical(session->seat);
-			log_debugf("CanGraphical state changed: %d", session->can_graphical);
-			return 0;
-		}
-	}
-
-error:
-	if (ret < 0) {
-		log_errorf("Could not parse D-Bus PropertiesChanged on seat: %s", strerror(-ret));
+		log_errorf("Could not parse D-Bus PropertiesChanged: %s", strerror(-ret));
 	}
 
 	return 0;
@@ -554,14 +484,14 @@ static bool add_signal_matches(struct backend_logind *backend) {
 	}
 
 	ret = sd_bus_match_signal(backend->bus, NULL, logind, backend->path, property_interface,
-				  "PropertiesChanged", session_properties_changed, backend);
+				  "PropertiesChanged", properties_changed, backend);
 	if (ret < 0) {
 		log_errorf("Could not add D-Bus match: %s", strerror(-ret));
 		return false;
 	}
 
 	ret = sd_bus_match_signal(backend->bus, NULL, logind, backend->seat_path, property_interface,
-				  "PropertiesChanged", seat_properties_changed, backend);
+				  "PropertiesChanged", properties_changed, backend);
 	if (ret < 0) {
 		log_errorf("Could not add D-Bus match: %s", strerror(-ret));
 		return false;
