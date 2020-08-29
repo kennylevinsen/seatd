@@ -575,6 +575,11 @@ static struct libseat *builtin_open_seat(struct libseat_seat_listener *listener,
 		return NULL;
 	}
 
+	if (geteuid() != 0) {
+		log_debug("Built-in seatd instance requires root privileges");
+		return NULL;
+	}
+
 	pid_t pid = fork();
 	if (pid == -1) {
 		log_errorf("Could not fork: %s", strerror(errno));
