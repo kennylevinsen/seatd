@@ -284,15 +284,14 @@ int connection_get(struct connection *connection, void *dst, size_t count) {
 	return count;
 }
 
-int connection_get_fd(struct connection *connection) {
-	int fd;
-	if (sizeof fd > connection_buffer_size(&connection->fds_in)) {
+int connection_get_fd(struct connection *connection, int *fd) {
+	if (sizeof(int) > connection_buffer_size(&connection->fds_in)) {
 		errno = EAGAIN;
 		return -1;
 	}
-	connection_buffer_copy(&connection->fds_in, &fd, sizeof fd);
-	connection_buffer_consume(&connection->fds_in, sizeof fd);
-	return fd;
+	connection_buffer_copy(&connection->fds_in, fd, sizeof(int));
+	connection_buffer_consume(&connection->fds_in, sizeof(int));
+	return 0;
 }
 
 void connection_close_fds(struct connection *connection) {

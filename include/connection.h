@@ -28,7 +28,7 @@ int connection_put_fd(struct connection *connection, int fd);
 
 size_t connection_pending(struct connection *connection);
 int connection_get(struct connection *connection, void *dst, size_t count);
-int connection_get_fd(struct connection *connection);
+int connection_get_fd(struct connection *connection, int *fd);
 void connection_restore(struct connection *connection, size_t count);
 
 void connection_close_fds(struct connection *connection);
