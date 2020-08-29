@@ -88,20 +88,6 @@ static struct backend_seatd *backend_seatd_from_libseat_backend(struct libseat *
 	return (struct backend_seatd *)base;
 }
 
-static void handle_enable_seat(struct backend_seatd *backend) {
-	log_info("Enabling seat");
-	if (backend->seat_listener != NULL && backend->seat_listener->enable_seat != NULL) {
-		backend->seat_listener->enable_seat(&backend->base, backend->seat_listener_data);
-	}
-}
-
-static void handle_disable_seat(struct backend_seatd *backend) {
-	log_info("Disabling seat");
-	if (backend->seat_listener != NULL && backend->seat_listener->disable_seat != NULL) {
-		backend->seat_listener->disable_seat(&backend->base, backend->seat_listener_data);
-	}
-}
-
 static size_t read_header(struct connection *connection, uint16_t expected_opcode) {
 	struct proto_header header;
 	if (connection_get(connection, &header, sizeof header) == -1) {
@@ -155,12 +141,17 @@ static void execute_events(struct backend_seatd *backend) {
 
 		switch (opcode) {
 		case SERVER_DISABLE_SEAT:
-			handle_disable_seat(backend);
+			log_info("Disabling seat");
+			backend->seat_listener->disable_seat(&backend->base,
+							     backend->seat_listener_data);
 			break;
 		case SERVER_ENABLE_SEAT:
-			handle_enable_seat(backend);
+			log_info("Enabling seat");
+			backend->seat_listener->enable_seat(&backend->base,
+							    backend->seat_listener_data);
 			break;
 		default:
+			log_errorf("Invalid opcode: %d", opcode);
 			abort();
 		}
 	}
@@ -283,6 +274,8 @@ static void destroy(struct backend_seatd *backend) {
 }
 
 static struct libseat *_open_seat(struct libseat_seat_listener *listener, void *data, int fd) {
+	assert(listener != NULL);
+	assert(listener->enable_seat != NULL && listener->disable_seat != NULL);
 	struct backend_seatd *backend = calloc(1, sizeof(struct backend_seatd));
 	if (backend == NULL) {
 		close(fd);

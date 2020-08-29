@@ -32,7 +32,7 @@ static const struct named_backend impls[] = {
 #endif
 
 struct libseat *libseat_open_seat(struct libseat_seat_listener *listener, void *data) {
-	if (listener == NULL) {
+	if (listener == NULL || listener->enable_seat == NULL || listener->disable_seat == NULL) {
 		errno = EINVAL;
 		return NULL;
 	}
