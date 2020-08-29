@@ -51,8 +51,10 @@ struct proto_server_seat_opened {
 
 struct proto_server_device_opened {
 	int device_id;
+	// One fd in auxillary data
 };
 
+// TODO: Content unused, remove before 0.3.0
 struct proto_server_device_closed {
 	int device_id;
 };
