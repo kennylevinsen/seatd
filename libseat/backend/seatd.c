@@ -204,14 +204,8 @@ static int queue_event(struct backend_seatd *backend, int opcode) {
 }
 
 static void execute_events(struct backend_seatd *backend) {
-	struct linked_list list = {
-		.next = backend->pending_events.next,
-		.prev = backend->pending_events.prev,
-	};
-	list.next->prev = &list;
-	list.prev->next = &list;
-
-	linked_list_init(&backend->pending_events);
+	struct linked_list list;
+	linked_list_take(&list, &backend->pending_events);
 	while (!linked_list_empty(&list)) {
 		struct pending_event *ev = (struct pending_event *)list.next;
 		int opcode = ev->opcode;

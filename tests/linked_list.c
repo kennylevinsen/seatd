@@ -201,6 +201,47 @@ static void test_linked_list_loop_iterate(void) {
 	assert(cnt == 3);
 }
 
+static void test_linked_list_take_empty(void) {
+	struct linked_list list1, list2;
+	linked_list_init(&list1);
+
+	linked_list_take(&list2, &list1);
+
+	assert(linked_list_empty(&list1));
+	assert(linked_list_empty(&list2));
+}
+
+static void test_linked_list_take_single(void) {
+	struct linked_list list1, list2;
+	linked_list_init(&list1);
+
+	struct list_elem elem1 = {{0}, NULL};
+	linked_list_insert(&list1, &elem1.link);
+
+	linked_list_take(&list2, &list1);
+
+	assert(linked_list_empty(&list1));
+	assert(list2.next == &elem1.link && list2.prev == &elem1.link);
+	assert(elem1.link.next == &list2 && elem1.link.prev == &list2);
+}
+
+static void test_linked_list_take_many(void) {
+	struct linked_list list1, list2;
+	linked_list_init(&list1);
+
+	struct list_elem elem1 = {{0}, NULL};
+	struct list_elem elem2 = {{0}, NULL};
+	linked_list_insert(&list1, &elem2.link);
+	linked_list_insert(&list1, &elem1.link);
+
+	linked_list_take(&list2, &list1);
+
+	assert(linked_list_empty(&list1));
+	assert(list2.next == &elem1.link && list2.prev == &elem2.link);
+	assert(elem1.link.next == &elem2.link && elem1.link.prev == &list2);
+	assert(elem2.link.next == &list2 && elem2.link.prev == &elem1.link);
+}
+
 int main(int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
@@ -214,6 +255,9 @@ int main(int argc, char *argv[]) {
 	test_linked_list_remove_loop();
 	test_linked_list_manual_iterate();
 	test_linked_list_loop_iterate();
+	test_linked_list_take_empty();
+	test_linked_list_take_single();
+	test_linked_list_take_many();
 
 	return 0;
 }

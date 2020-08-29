@@ -32,3 +32,17 @@ bool linked_list_empty(struct linked_list *list) {
 	assert(list->prev != NULL && list->next != NULL);
 	return list->next == list;
 }
+
+void linked_list_take(struct linked_list *target, struct linked_list *source) {
+	if (linked_list_empty(source)) {
+		linked_list_init(target);
+		return;
+	}
+
+	target->next = source->next;
+	target->prev = source->prev;
+	target->next->prev = target;
+	target->prev->next = target;
+
+	linked_list_init(source);
+}
