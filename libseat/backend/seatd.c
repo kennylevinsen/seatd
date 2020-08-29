@@ -489,11 +489,6 @@ static int close_device(struct libseat *base, int device_id) {
 	    conn_get(backend, &rmsg, sizeof rmsg) == -1) {
 		return -1;
 	}
-	if (rmsg.device_id != device_id) {
-		log_errorf("Unexpected response: expected device close for %d, got device close for %d",
-			   rmsg.device_id, device_id);
-		return -1;
-	}
 
 	return 0;
 }
