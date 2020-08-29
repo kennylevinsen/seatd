@@ -72,19 +72,13 @@ struct client *client_create(struct server *server, int client_fd) {
 	return client;
 }
 
-void client_kill(struct client *client) {
-	assert(client);
-	if (client->connection.fd != -1) {
-		shutdown(client->connection.fd, SHUT_RDWR);
-	};
-	if (client->seat != NULL) {
-		seat_remove_client(client);
-	}
-}
-
 void client_destroy(struct client *client) {
 	assert(client);
 	client->server = NULL;
+	if (client->connection.fd != -1) {
+		close(client->connection.fd);
+		client->connection.fd = -1;
+	}
 	if (client->seat != NULL) {
 		// This should also close and remove all devices
 		seat_remove_client(client);
@@ -92,10 +86,6 @@ void client_destroy(struct client *client) {
 	if (client->event_source != NULL) {
 		event_source_fd_destroy(client->event_source);
 		client->event_source = NULL;
-	}
-	if (client->connection.fd != -1) {
-		close(client->connection.fd);
-		client->connection.fd = -1;
 	}
 	connection_close_fds(&client->connection);
 	assert(linked_list_empty(&client->devices));

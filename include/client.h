@@ -28,7 +28,6 @@ struct client {
 };
 
 struct client *client_create(struct server *server, int client_fd);
-void client_kill(struct client *client);
 void client_destroy(struct client *client);
 
 int client_handle_connection(int fd, uint32_t mask, void *data);

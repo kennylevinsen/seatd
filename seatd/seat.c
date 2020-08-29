@@ -39,9 +39,8 @@ void seat_destroy(struct seat *seat) {
 	assert(seat);
 	while (!linked_list_empty(&seat->clients)) {
 		struct client *client = (struct client *)seat->clients.next;
-		// This will cause the client to remove itself from the seat
 		assert(client->seat == seat);
-		client_kill(client);
+		client_destroy(client);
 	}
 	assert(seat->curttyfd == -1);
 
