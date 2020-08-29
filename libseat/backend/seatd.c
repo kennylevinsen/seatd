@@ -36,6 +36,7 @@ struct backend_seatd {
 	struct libseat_seat_listener *seat_listener;
 	void *seat_listener_data;
 	struct linked_list pending_events;
+	bool error;
 
 	char seat_name[MAX_SEAT_LEN];
 };
@@ -91,9 +92,37 @@ static struct backend_seatd *backend_seatd_from_libseat_backend(struct libseat *
 	return (struct backend_seatd *)base;
 }
 
+static void cleanup(struct backend_seatd *backend) {
+	if (backend->connection.fd != -1) {
+		close(backend->connection.fd);
+		backend->connection.fd = -1;
+	}
+	connection_close_fds(&backend->connection);
+	while (!linked_list_empty(&backend->pending_events)) {
+		struct pending_event *ev = (struct pending_event *)backend->pending_events.next;
+		linked_list_remove(&ev->link);
+		free(ev);
+	}
+}
+
+static void destroy(struct backend_seatd *backend) {
+	cleanup(backend);
+	free(backend);
+}
+
+static void set_error(struct backend_seatd *backend) {
+	if (backend->error) {
+		return;
+	}
+
+	backend->error = true;
+	cleanup(backend);
+}
+
 static inline int conn_put(struct backend_seatd *backend, const void *data, const size_t data_len) {
 	if (connection_put(&backend->connection, data, data_len) == -1) {
 		log_errorf("Could not send request: %s", strerror(errno));
+		set_error(backend);
 		return -1;
 	}
 	return 0;
@@ -102,6 +131,7 @@ static inline int conn_put(struct backend_seatd *backend, const void *data, cons
 static inline int conn_flush(struct backend_seatd *backend) {
 	if (connection_flush(&backend->connection) == -1) {
 		log_errorf("Could not flush connection: %s", strerror(errno));
+		set_error(backend);
 		return -1;
 	}
 	return 0;
@@ -110,6 +140,7 @@ static inline int conn_flush(struct backend_seatd *backend) {
 static inline int conn_get(struct backend_seatd *backend, void *target, const size_t target_len) {
 	if (connection_get(&backend->connection, target, target_len) == -1) {
 		log_error("Invalid message: insufficient data received");
+		set_error(backend);
 		errno = EBADMSG;
 		return -1;
 	}
@@ -119,6 +150,7 @@ static inline int conn_get(struct backend_seatd *backend, void *target, const si
 static inline int conn_get_fd(struct backend_seatd *backend, int *fd) {
 	if (connection_get_fd(&backend->connection, fd) == -1) {
 		log_error("Invalid message: insufficient data received");
+		set_error(backend);
 		errno = EBADMSG;
 		return -1;
 	}
@@ -129,6 +161,7 @@ static size_t read_header(struct backend_seatd *backend, uint16_t expected_opcod
 			  size_t expected_size, bool variable) {
 	struct proto_header header;
 	if (conn_get(backend, &header, sizeof header) == -1) {
+		set_error(backend);
 		return SIZE_MAX;
 	}
 	if (header.opcode != expected_opcode) {
@@ -137,8 +170,10 @@ static size_t read_header(struct backend_seatd *backend, uint16_t expected_opcod
 		if (header.opcode != SERVER_ERROR) {
 			log_errorf("Unexpected response: expected opcode %d, received opcode %d",
 				   expected_opcode, header.opcode);
+			set_error(backend);
 			errno = EBADMSG;
 		} else if (conn_get(backend, &msg, sizeof msg) == -1) {
+			set_error(backend);
 			errno = EBADMSG;
 		} else {
 			errno = msg.error_code;
@@ -149,6 +184,7 @@ static size_t read_header(struct backend_seatd *backend, uint16_t expected_opcod
 	if ((!variable && header.size != expected_size) || (variable && header.size < expected_size)) {
 		log_errorf("Invalid message: does not match expected size: variable: %d, header.size: %d, expected size: %zd",
 			   variable, header.size, expected_size);
+		set_error(backend);
 		errno = EBADMSG;
 		return SIZE_MAX;
 	}
@@ -209,6 +245,7 @@ static int dispatch_pending(struct backend_seatd *backend, int *opcode) {
 		case SERVER_DISABLE_SEAT:
 		case SERVER_ENABLE_SEAT:
 			if (queue_event(backend, header.opcode) == -1) {
+				set_error(backend);
 				return -1;
 			}
 			break;
@@ -277,6 +314,11 @@ static int get_fd(struct libseat *base) {
 
 static int dispatch_background(struct libseat *base, int timeout) {
 	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
+	if (backend->error) {
+		errno = ENOTCONN;
+		return -1;
+	}
+
 	int dispatched = dispatch_pending(backend, NULL);
 	if (dispatched > 0) {
 		// We don't want to block if we dispatched something, as the
@@ -299,20 +341,6 @@ static int dispatch_background(struct libseat *base, int timeout) {
 
 	execute_events(backend);
 	return dispatched;
-}
-
-static void destroy(struct backend_seatd *backend) {
-	if (backend->connection.fd != -1) {
-		close(backend->connection.fd);
-		backend->connection.fd = -1;
-	}
-	connection_close_fds(&backend->connection);
-	while (!linked_list_empty(&backend->pending_events)) {
-		struct pending_event *ev = (struct pending_event *)backend->pending_events.next;
-		linked_list_remove(&ev->link);
-		free(ev);
-	}
-	free(backend);
 }
 
 static struct libseat *_open_seat(struct libseat_seat_listener *listener, void *data, int fd) {
@@ -401,7 +429,10 @@ static const char *seat_name(struct libseat *base) {
 
 static int open_device(struct libseat *base, const char *path, int *fd) {
 	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
-
+	if (backend->error) {
+		errno = ENOTCONN;
+		return -1;
+	}
 	size_t pathlen = strlen(path) + 1;
 	if (pathlen > MAX_PATH_LEN) {
 		errno = EINVAL;
@@ -432,6 +463,10 @@ static int open_device(struct libseat *base, const char *path, int *fd) {
 
 static int close_device(struct libseat *base, int device_id) {
 	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
+	if (backend->error) {
+		errno = ENOTCONN;
+		return -1;
+	}
 	if (device_id < 0) {
 		errno = EINVAL;
 		return -1;
@@ -465,6 +500,10 @@ static int close_device(struct libseat *base, int device_id) {
 
 static int switch_session(struct libseat *base, int session) {
 	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
+	if (backend->error) {
+		errno = ENOTCONN;
+		return -1;
+	}
 	if (session < 0) {
 		return -1;
 	}
@@ -486,6 +525,10 @@ static int switch_session(struct libseat *base, int session) {
 
 static int disable_seat(struct libseat *base) {
 	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
+	if (backend->error) {
+		errno = ENOTCONN;
+		return -1;
+	}
 	struct proto_header header = {
 		.opcode = CLIENT_DISABLE_SEAT,
 		.size = 0,
