@@ -54,11 +54,6 @@ struct proto_server_device_opened {
 	// One fd in auxillary data
 };
 
-// TODO: Content unused, remove before 0.3.0
-struct proto_server_device_closed {
-	int device_id;
-};
-
 struct proto_server_error {
 	int error_code;
 };

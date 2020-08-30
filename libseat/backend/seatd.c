@@ -478,9 +478,7 @@ static int close_device(struct libseat *base, int device_id) {
 		return -1;
 	}
 
-	struct proto_server_device_closed rmsg;
-	if (read_header(backend, SERVER_DEVICE_CLOSED, sizeof rmsg, false) == SIZE_MAX ||
-	    conn_get(backend, &rmsg, sizeof rmsg) == -1) {
+	if (read_header(backend, SERVER_DEVICE_CLOSED, 0, false) == SIZE_MAX) {
 		return -1;
 	}
 

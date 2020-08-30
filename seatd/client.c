@@ -250,16 +250,12 @@ static int handle_close_device(struct client *client, int device_id) {
 		goto fail;
 	}
 
-	struct proto_server_device_closed msg = {
-		.device_id = device_id,
-	};
 	struct proto_header header = {
 		.opcode = SERVER_DEVICE_CLOSED,
-		.size = sizeof msg,
+		.size = 0,
 	};
 
-	if (connection_put(&client->connection, &header, sizeof header) == -1 ||
-	    connection_put(&client->connection, &msg, sizeof msg)) {
+	if (connection_put(&client->connection, &header, sizeof header) == -1) {
 		log_errorf("unable to write response: %s", strerror(errno));
 		return -1;
 	}
