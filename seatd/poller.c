@@ -10,6 +10,30 @@
 #include "list.h"
 #include "poller.h"
 
+struct event_source_fd {
+	const struct event_source_fd_impl *impl;
+	event_source_fd_func_t func;
+
+	int fd;
+	uint32_t mask;
+	void *data;
+
+	struct poller *poller;
+	bool killed;
+};
+
+struct event_source_signal {
+	const struct event_source_signal_impl *impl;
+	event_source_signal_func_t func;
+
+	int signal;
+	void *data;
+
+	struct poller *poller;
+	bool raised;
+	bool killed;
+};
+
 /* Used for signal handling */
 struct poller *global_poller = NULL;
 

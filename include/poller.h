@@ -6,10 +6,6 @@
 
 #include "list.h"
 
-struct poller;
-struct event_source_fd;
-struct event_source_signal;
-
 /*
  * These are the event types available from the poller.
  */
@@ -17,6 +13,16 @@ struct event_source_signal;
 #define EVENT_WRITABLE 0x4
 #define EVENT_ERROR    0x8
 #define EVENT_HANGUP   0x10
+
+/**
+ * The fd poller class. This must be created by poller_add_fd.
+ */
+struct event_source_fd;
+
+/*
+ * The signal poller class. This must be created by poller_add_signal.
+ */
+struct event_source_signal;
 
 /**
  * The callback type used by event_source_fd, passed to poller_add_fd.
@@ -29,21 +35,6 @@ typedef int (*event_source_fd_func_t)(int fd, uint32_t mask, void *data);
 struct event_source_fd_impl {
 	int (*update)(struct event_source_fd *event_source, uint32_t mask);
 	int (*destroy)(struct event_source_fd *event_source);
-};
-
-/**
- * The fd poller class. This must be created by poller_add_fd.
- */
-struct event_source_fd {
-	const struct event_source_fd_impl *impl;
-	event_source_fd_func_t func;
-
-	int fd;
-	uint32_t mask;
-	void *data;
-
-	struct poller *poller;
-	bool killed;
 };
 
 /**
@@ -68,40 +59,10 @@ struct event_source_signal_impl {
 	int (*destroy)(struct event_source_signal *event_source);
 };
 
-/*
- * The signal poller class. This must be created by poller_add_signal.
- */
-struct event_source_signal {
-	const struct event_source_signal_impl *impl;
-	event_source_signal_func_t func;
-
-	int signal;
-	void *data;
-
-	struct poller *poller;
-	bool raised;
-	bool killed;
-};
-
 /**
  * Removes the event_source_siganl from the poller and frees the structure.
  */
 int event_source_signal_destroy(struct event_source_signal *event_source);
-
-/**
- * The interface that a poll backend must implement.
- */
-struct poll_impl {
-	struct poller *(*create)(void);
-	int (*destroy)(struct poller *);
-
-	struct event_source_fd *(*add_fd)(struct poller *, int fd, uint32_t mask,
-					  event_source_fd_func_t func, void *data);
-	struct event_source_signal *(*add_signal)(struct poller *, int signal,
-						  event_source_signal_func_t func, void *data);
-
-	int (*poll)(struct poller *);
-};
 
 /**
  * The poller base class. This must be created by poller_create.
@@ -119,9 +80,20 @@ struct poller {
 };
 
 /**
- * Creates a poller with the best available polling backend. This poller must
- * be torn down with poller_destroy when it is no longer needed.
+ * The interface that a poll backend must implement.
  */
+struct poll_impl {
+	struct poller *(*create)(void);
+	int (*destroy)(struct poller *);
+
+	struct event_source_fd *(*add_fd)(struct poller *, int fd, uint32_t mask,
+					  event_source_fd_func_t func, void *data);
+	struct event_source_signal *(*add_signal)(struct poller *, int signal,
+						  event_source_signal_func_t func, void *data);
+
+	int (*poll)(struct poller *);
+};
+
 /**
  * Initializes the poller. The poller must be torn down with poller_finish when
  * it is no longer needed.
