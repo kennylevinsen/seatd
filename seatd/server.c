@@ -12,7 +12,6 @@
 #include <unistd.h>
 
 #include "client.h"
-#include "list.h"
 #include "log.h"
 #include "poller.h"
 #include "seat.h"
@@ -26,7 +25,7 @@ static int server_handle_kill(int signal, void *data);
 int server_init(struct server *server) {
 	poller_init(&server->poller);
 
-	list_init(&server->seats);
+	linked_list_init(&server->seats);
 
 	if (poller_add_signal(&server->poller, SIGUSR1, server_handle_vt_rel, server) == NULL ||
 	    poller_add_signal(&server->poller, SIGUSR2, server_handle_vt_acq, server) == NULL ||
@@ -45,24 +44,24 @@ int server_init(struct server *server) {
 		return -1;
 	}
 
-	list_add(&server->seats, seat);
+	linked_list_insert(&server->seats, &seat->link);
 	server->running = true;
 	return 0;
 }
 
 void server_finish(struct server *server) {
 	assert(server);
-	for (size_t idx = 0; idx < server->seats.length; idx++) {
-		struct seat *seat = server->seats.items[idx];
+	while (!linked_list_empty(&server->seats)) {
+		struct seat *seat = (struct seat *)server->seats.next;
 		seat_destroy(seat);
 	}
-	list_free(&server->seats);
 	poller_finish(&server->poller);
 }
 
 struct seat *server_get_seat(struct server *server, const char *seat_name) {
-	for (size_t idx = 0; idx < server->seats.length; idx++) {
-		struct seat *seat = server->seats.items[idx];
+	for (struct linked_list *elem = server->seats.next; elem != &server->seats;
+	     elem = elem->next) {
+		struct seat *seat = (struct seat *)elem;
 		if (strcmp(seat->seat_name, seat_name) == 0) {
 			return seat;
 		}

@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "list.h"
+#include "linked_list.h"
 #include "poller.h"
 
 struct client;
@@ -12,7 +12,7 @@ struct server {
 	bool running;
 	struct poller poller;
 
-	struct list seats;
+	struct linked_list seats;
 };
 
 int server_init(struct server *server);

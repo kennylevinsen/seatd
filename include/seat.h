@@ -26,6 +26,7 @@ struct seat_device {
 };
 
 struct seat {
+	struct linked_list link; // server::seats
 	char *seat_name;
 	struct linked_list clients;
 	struct client *active_client;
