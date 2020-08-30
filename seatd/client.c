@@ -112,7 +112,7 @@ static int client_send_error(struct client *client, int error_code) {
 	};
 
 	if (connection_put(&client->connection, &errheader, sizeof errheader) == -1 ||
-	    connection_put(&client->connection, &errmsg, sizeof errmsg)) {
+	    connection_put(&client->connection, &errmsg, sizeof errmsg) == -1) {
 		log_error("could not send error to client");
 		return -1;
 	}
@@ -221,7 +221,7 @@ static int handle_open_device(struct client *client, char *path) {
 	};
 
 	if (connection_put(&client->connection, &header, sizeof header) == -1 ||
-	    connection_put(&client->connection, &msg, sizeof msg)) {
+	    connection_put(&client->connection, &msg, sizeof msg) == -1) {
 		log_errorf("unable to write response: %s", strerror(errno));
 		return -1;
 	}
