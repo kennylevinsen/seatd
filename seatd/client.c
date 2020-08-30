@@ -42,7 +42,7 @@ static int get_peer(int fd, pid_t *pid, uid_t *uid, gid_t *gid) {
 	}
 	*pid = -1;
 	*uid = cred.cr_uid;
-	*gid = cred.cr_ngroups > 0 ? cred.cr_groups[0] : -1;
+	*gid = cred.cr_ngroups > 0 ? cred.cr_groups[0] : (gid_t)-1;
 	return 0;
 #else
 	return -1;
