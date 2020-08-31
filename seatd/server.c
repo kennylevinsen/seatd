@@ -26,6 +26,7 @@ int server_init(struct server *server) {
 	poller_init(&server->poller);
 
 	linked_list_init(&server->seats);
+	linked_list_init(&server->idle_clients);
 
 	if (poller_add_signal(&server->poller, SIGUSR1, server_handle_vt_rel, server) == NULL ||
 	    poller_add_signal(&server->poller, SIGUSR2, server_handle_vt_acq, server) == NULL ||
@@ -51,6 +52,11 @@ int server_init(struct server *server) {
 
 void server_finish(struct server *server) {
 	assert(server);
+	while (!linked_list_empty(&server->idle_clients)) {
+		struct client *client = (struct client *)server->idle_clients.next;
+		linked_list_remove(&client->link);
+		client_destroy(client);
+	}
 	while (!linked_list_empty(&server->seats)) {
 		struct seat *seat = (struct seat *)server->seats.next;
 		linked_list_remove(&seat->link);
@@ -131,6 +137,7 @@ int server_add_client(struct server *server, int fd) {
 	}
 	log_infof("new client connected (pid: %d, uid: %d, gid: %d)", client->pid, client->uid,
 		  client->gid);
+	linked_list_insert(&server->idle_clients, &client->link);
 	return 0;
 }
 

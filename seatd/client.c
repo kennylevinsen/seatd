@@ -138,6 +138,7 @@ static int handle_open_seat(struct client *client) {
 		return -1;
 	}
 
+	linked_list_remove(&client->link);
 	if (seat_add_client(seat, client) == -1) {
 		log_errorf("unable to add client to target seat: %s", strerror(errno));
 		return -1;
@@ -174,6 +175,7 @@ static int handle_close_seat(struct client *client) {
 		log_error("unable to remove client from seat");
 		return -1;
 	}
+	linked_list_insert(&client->server->idle_clients, &client->link);
 
 	struct proto_header header = {
 		.opcode = SERVER_SEAT_CLOSED,

@@ -13,6 +13,7 @@ struct server {
 	struct poller poller;
 
 	struct linked_list seats;
+	struct linked_list idle_clients;
 };
 
 int server_init(struct server *server);

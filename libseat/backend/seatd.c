@@ -599,7 +599,7 @@ static struct libseat *builtin_open_seat(struct libseat_seat_listener *listener,
 			if (poller_poll(&server.poller) == -1) {
 				log_errorf("Could not poll server socket: %s", strerror(errno));
 				res = 1;
-				goto server_error;
+				break;
 			}
 		}
 	server_error:
