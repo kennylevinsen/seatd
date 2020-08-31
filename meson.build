@@ -180,10 +180,11 @@ test(
         )
 )
 
-scdoc = dependency('scdoc', required: get_option('man-pages'), version: '>= 1.9.7')
+scdoc = dependency('scdoc', required: get_option('man-pages'), version: '>= 1.9.7', native: true)
 
 if scdoc.found()
-	sh = find_program('sh')
+	sh = find_program('sh', native: true)
+	scdoc_prog = find_program(scdoc.get_pkgconfig_variable('scdoc'), native: true)
 
 	man_pages = ['seatd.1.scd']
 
@@ -199,7 +200,7 @@ if scdoc.found()
 			input: 'man/' + src,
 			output: output,
 			command: [
-				sh, '-c', '@0@ < @INPUT@ > @1@'.format(scdoc.get_pkgconfig_variable('scdoc'), output)
+				sh, '-c', '@0@ < @INPUT@ > @1@'.format(scdoc_prog.path(), output)
 			],
 			install: true,
 			install_dir: '@0@/man@1@'.format(mandir, section)
