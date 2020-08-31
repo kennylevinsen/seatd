@@ -55,6 +55,7 @@ void poller_init(struct poller *poller) {
 int poller_finish(struct poller *poller) {
 	while (!linked_list_empty(&poller->fds)) {
 		struct event_source_fd *bpfd = (struct event_source_fd *)poller->fds.next;
+		linked_list_remove(&bpfd->link);
 		free(bpfd);
 	}
 	while (!linked_list_empty(&poller->signals)) {
@@ -66,6 +67,7 @@ int poller_finish(struct poller *poller) {
 		sa.sa_flags = 0;
 		sigaction(bps->signal, &sa, NULL);
 
+		linked_list_remove(&bps->link);
 		free(bps);
 	}
 	free(poller->pollfds);
