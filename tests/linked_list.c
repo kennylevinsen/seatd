@@ -204,6 +204,7 @@ static void test_linked_list_loop_iterate(void) {
 static void test_linked_list_take_empty(void) {
 	struct linked_list list1, list2;
 	linked_list_init(&list1);
+	linked_list_init(&list2);
 
 	linked_list_take(&list2, &list1);
 
@@ -214,6 +215,7 @@ static void test_linked_list_take_empty(void) {
 static void test_linked_list_take_single(void) {
 	struct linked_list list1, list2;
 	linked_list_init(&list1);
+	linked_list_init(&list2);
 
 	struct list_elem elem1 = {{0}, NULL};
 	linked_list_insert(&list1, &elem1.link);
@@ -228,6 +230,7 @@ static void test_linked_list_take_single(void) {
 static void test_linked_list_take_many(void) {
 	struct linked_list list1, list2;
 	linked_list_init(&list1);
+	linked_list_init(&list2);
 
 	struct list_elem elem1 = {{0}, NULL};
 	struct list_elem elem2 = {{0}, NULL};
@@ -240,6 +243,30 @@ static void test_linked_list_take_many(void) {
 	assert(list2.next == &elem1.link && list2.prev == &elem2.link);
 	assert(elem1.link.next == &elem2.link && elem1.link.prev == &list2);
 	assert(elem2.link.next == &list2 && elem2.link.prev == &elem1.link);
+}
+
+static void test_linked_list_take_concat(void) {
+	struct linked_list list1, list2;
+	linked_list_init(&list1);
+	linked_list_init(&list2);
+
+	struct list_elem elem1 = {{0}, NULL};
+	struct list_elem elem2 = {{0}, NULL};
+	struct list_elem elem3 = {{0}, NULL};
+	struct list_elem elem4 = {{0}, NULL};
+	linked_list_insert(&list1, &elem2.link);
+	linked_list_insert(&list1, &elem1.link);
+	linked_list_insert(&list2, &elem4.link);
+	linked_list_insert(&list2, &elem3.link);
+
+	linked_list_take(&list2, &list1);
+
+	assert(linked_list_empty(&list1));
+	assert(list2.next == &elem1.link && list2.prev == &elem4.link);
+	assert(elem1.link.next == &elem2.link && elem1.link.prev == &list2);
+	assert(elem2.link.next == &elem3.link && elem2.link.prev == &elem1.link);
+	assert(elem3.link.next == &elem4.link && elem3.link.prev == &elem2.link);
+	assert(elem4.link.next == &list2 && elem4.link.prev == &elem3.link);
 }
 
 int main(int argc, char *argv[]) {
@@ -258,6 +285,7 @@ int main(int argc, char *argv[]) {
 	test_linked_list_take_empty();
 	test_linked_list_take_single();
 	test_linked_list_take_many();
+	test_linked_list_take_concat();
 
 	return 0;
 }

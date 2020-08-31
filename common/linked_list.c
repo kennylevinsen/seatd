@@ -35,14 +35,12 @@ bool linked_list_empty(struct linked_list *list) {
 
 void linked_list_take(struct linked_list *target, struct linked_list *source) {
 	if (linked_list_empty(source)) {
-		linked_list_init(target);
 		return;
 	}
 
+	source->next->prev = target;
+	source->prev->next = target->next;
+	target->next->prev = source->prev;
 	target->next = source->next;
-	target->prev = source->prev;
-	target->next->prev = target;
-	target->prev->next = target;
-
 	linked_list_init(source);
 }

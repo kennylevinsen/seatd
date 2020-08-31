@@ -205,6 +205,7 @@ static int queue_event(struct backend_seatd *backend, int opcode) {
 
 static void execute_events(struct backend_seatd *backend) {
 	struct linked_list list;
+	linked_list_init(&list);
 	linked_list_take(&list, &backend->pending_events);
 	while (!linked_list_empty(&list)) {
 		struct pending_event *ev = (struct pending_event *)list.next;
