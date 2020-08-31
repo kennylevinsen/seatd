@@ -89,6 +89,7 @@ void client_destroy(struct client *client) {
 	}
 	connection_close_fds(&client->connection);
 	assert(linked_list_empty(&client->devices));
+	linked_list_remove(&client->link);
 	free(client);
 }
 

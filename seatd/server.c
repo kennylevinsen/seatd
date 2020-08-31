@@ -54,12 +54,10 @@ void server_finish(struct server *server) {
 	assert(server);
 	while (!linked_list_empty(&server->idle_clients)) {
 		struct client *client = (struct client *)server->idle_clients.next;
-		linked_list_remove(&client->link);
 		client_destroy(client);
 	}
 	while (!linked_list_empty(&server->seats)) {
 		struct seat *seat = (struct seat *)server->seats.next;
-		linked_list_remove(&seat->link);
 		seat_destroy(seat);
 	}
 	poller_finish(&server->poller);

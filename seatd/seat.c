@@ -44,6 +44,7 @@ void seat_destroy(struct seat *seat) {
 	}
 	assert(seat->curttyfd == -1);
 
+	linked_list_remove(&seat->link);
 	free(seat->seat_name);
 	free(seat);
 }
