@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "list.h"
+#include "linked_list.h"
 
 /*
  * These are the event types available from the poller.
@@ -68,15 +68,13 @@ int event_source_signal_destroy(struct event_source_signal *event_source);
  * The poller base class. This must be created by poller_create.
  */
 struct poller {
-	struct list signals;
-	struct list new_signals;
-	struct list fds;
-	struct list new_fds;
+	struct linked_list signals;
+	struct linked_list fds;
 
 	struct pollfd *pollfds;
 	size_t pollfds_len;
-	bool dirty;
-	bool inpoll;
+	size_t fd_event_sources;
+	bool pollfds_dirty;
 };
 
 /**
