@@ -80,8 +80,13 @@ void client_destroy(struct client *client) {
 		client->connection.fd = -1;
 	}
 	if (client->seat != NULL) {
-		// This should also close and remove all devices
+		// This should also close and remove all devices. This unlinks
+		// the client.
 		seat_remove_client(client);
+	} else {
+		// If we are not a member of a seat, we will be on the idle
+		// clients list, so unlink the client manually.
+		linked_list_remove(&client->link);
 	}
 	if (client->event_source != NULL) {
 		event_source_fd_destroy(client->event_source);
@@ -89,7 +94,6 @@ void client_destroy(struct client *client) {
 	}
 	connection_close_fds(&client->connection);
 	assert(linked_list_empty(&client->devices));
-	linked_list_remove(&client->link);
 	free(client);
 }
 
