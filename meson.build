@@ -186,7 +186,15 @@ if scdoc.found()
 	sh = find_program('sh', native: true)
 	scdoc_prog = find_program(scdoc.get_pkgconfig_variable('scdoc'), native: true)
 
-	man_pages = ['seatd.1.scd']
+	man_pages = [
+	   'seatd.1.scd',
+	   'libseat.3.scd',
+	   'libseat-seat.3.scd',
+	   'libseat-device.3.scd',
+	   'libseat-session.3.scd',
+	   'libseat-dispatch.3.scd',
+	   'libseat-log.3.scd',
+	]
 
 	mandir = get_option('mandir')
 
