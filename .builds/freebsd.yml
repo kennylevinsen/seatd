@@ -6,7 +6,7 @@ sources:
 tasks:
    - prepare: |
       cd seatd
-      meson build -Dseatd=enabled -Dbuiltin=enabled -Dlogind=disabled
+      meson -Dseatd=enabled -Dbuiltin=enabled -Dlogind=disabled build
    - build: |
       cd seatd
       ninja -C build
@@ -15,6 +15,9 @@ tasks:
       ninja -C build test
    - smoketest: |
       cd seatd
+      rm -rf build
+      meson -Db_lundef=false -Db_sanitize=address -Dseatd=enabled -Dbuiltin=enabled -Dlogind=disabled build
+      ninja -C build
       timeout -s KILL 30s ./.builds/smoketest-seatd.sh
    - smoketest-builtin: |
       cd seatd
