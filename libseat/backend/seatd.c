@@ -165,14 +165,13 @@ static size_t read_header(struct backend_seatd *backend, uint16_t expected_opcod
 		return SIZE_MAX;
 	}
 	if (header.opcode != expected_opcode) {
-		connection_restore(&backend->connection, sizeof header);
 		struct proto_server_error msg;
 		if (header.opcode != SERVER_ERROR) {
 			log_errorf("Unexpected response: expected opcode %d, received opcode %d",
 				   expected_opcode, header.opcode);
 			set_error(backend);
 			errno = EBADMSG;
-		} else if (conn_get(backend, &msg, sizeof msg) == -1) {
+		} else if (header.size != sizeof msg || conn_get(backend, &msg, sizeof msg) == -1) {
 			set_error(backend);
 			errno = EBADMSG;
 		} else {
