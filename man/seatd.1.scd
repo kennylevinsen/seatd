@@ -51,5 +51,6 @@ The libseat library, *<libseat.h>*
 
 # AUTHORS
 
-Maintained by Kenny Levinsen <contact@kl.wtf>. For more information about seatd
-development, see https://sr.ht/~kennylevinsen/seatd.
+Maintained by Kenny Levinsen <contact@kl.wtf>, who is assisted by other
+open-source contributors. For more information about seatd development, see
+https://sr.ht/~kennylevinsen/seatd.
