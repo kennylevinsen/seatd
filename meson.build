@@ -11,6 +11,9 @@ project(
 	],
 )
 
+# Bump whenever ABI-breaking changes occur.
+libseat_soversion = 1
+
 add_project_arguments(
 	[
 		'-Wundef',
@@ -135,6 +138,7 @@ symbols_flag = '-Wl,--version-script,@0@/@1@'.format(meson.current_source_dir(),
 lib = library(
 	'seat', # This results in the library being called 'libseat'
 	[ 'libseat/libseat.c' ],
+	soversion: libseat_soversion,
 	link_with: private_lib,
 	include_directories: [include_directories('.', 'include')],
 	install: true,
