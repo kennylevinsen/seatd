@@ -295,13 +295,6 @@ static int handle_disable_seat(struct client *client) {
 		return -1;
 	}
 
-	struct seat *seat = client->seat;
-	if (seat->active_client != client) {
-		log_info("client is not currently active");
-		errno = EPERM;
-		goto error;
-	}
-
 	if (seat_ack_disable_client(client) == -1) {
 		goto error;
 	}
