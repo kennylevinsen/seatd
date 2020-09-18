@@ -23,7 +23,10 @@ static int server_handle_vt_rel(int signal, void *data);
 static int server_handle_kill(int signal, void *data);
 
 int server_init(struct server *server) {
-	poller_init(&server->poller);
+	if (poller_init(&server->poller) == -1) {
+		log_errorf("could not initialize poller: %s", strerror(errno));
+		return -1;
+	}
 
 	linked_list_init(&server->seats);
 	linked_list_init(&server->idle_clients);

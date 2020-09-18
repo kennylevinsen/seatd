@@ -71,10 +71,11 @@ struct poller {
 	struct linked_list signals;
 	struct linked_list fds;
 
+	int signal_fds[2];
 	struct pollfd *pollfds;
 	size_t pollfds_len;
 	size_t fd_event_sources;
-	bool pollfds_dirty;
+	bool dirty;
 };
 
 /**
@@ -96,7 +97,7 @@ struct poll_impl {
  * Initializes the poller. The poller must be torn down with poller_finish when
  * it is no longer needed.
  */
-void poller_init(struct poller *poller);
+int poller_init(struct poller *poller);
 
 /**
  * De-initializes the poller. This destroys all remaining event sources and

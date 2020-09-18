@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 #include <stddef.h>
@@ -41,15 +42,54 @@ struct event_source_signal {
 /* Used for signal handling */
 struct poller *global_poller = NULL;
 
-void poller_init(struct poller *poller) {
+static void signal_handler(int sig) {
+	if (global_poller == NULL) {
+		return;
+	}
+	for (struct linked_list *elem = global_poller->signals.next;
+	     elem != &global_poller->signals; elem = elem->next) {
+		struct event_source_signal *bps = (struct event_source_signal *)elem;
+		if (bps->signal == sig) {
+			bps->raised = true;
+		}
+	}
+	int saved_errno = errno;
+	if (write(global_poller->signal_fds[1], "\0", 1) == -1 && errno != EAGAIN) {
+		// This is unfortunate.
+	}
+	errno = saved_errno;
+}
+
+static int set_nonblock(int fd) {
+	int flags;
+	if ((flags = fcntl(fd, F_GETFL)) == -1 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+		return -1;
+	}
+	return 0;
+}
+
+int poller_init(struct poller *poller) {
 	assert(global_poller == NULL);
+
+	if (pipe(poller->signal_fds) == -1) {
+		return -1;
+	}
+	if (set_nonblock(poller->signal_fds[0]) == -1) {
+		return -1;
+	}
+	if (set_nonblock(poller->signal_fds[1]) == -1) {
+		return -1;
+	}
 
 	linked_list_init(&poller->fds);
 	linked_list_init(&poller->signals);
 	poller->pollfds = NULL;
 	poller->pollfds_len = 0;
-	poller->fd_event_sources = 0;
+	poller->dirty = true;
+	poller->fd_event_sources = 1;
 	global_poller = poller;
+
+	return 0;
 }
 
 int poller_finish(struct poller *poller) {
@@ -74,63 +114,6 @@ int poller_finish(struct poller *poller) {
 	return 0;
 }
 
-static int event_mask_to_poll_mask(uint32_t event_mask) {
-	int poll_mask = 0;
-	if (event_mask & EVENT_READABLE) {
-		poll_mask |= POLLIN;
-	}
-	if (event_mask & EVENT_WRITABLE) {
-		poll_mask |= POLLOUT;
-	}
-	return poll_mask;
-}
-
-static uint32_t poll_mask_to_event_mask(int poll_mask) {
-	uint32_t event_mask = 0;
-	if (poll_mask & POLLIN) {
-		event_mask |= EVENT_READABLE;
-	}
-	if (poll_mask & POLLOUT) {
-		event_mask |= EVENT_WRITABLE;
-	}
-	if (poll_mask & POLLERR) {
-		event_mask |= EVENT_ERROR;
-	}
-	if (poll_mask & POLLHUP) {
-		event_mask |= EVENT_HANGUP;
-	}
-	return event_mask;
-}
-
-static int regenerate_pollfds(struct poller *poller) {
-	if (!poller->pollfds_dirty) {
-		return 0;
-	}
-
-	if (poller->fd_event_sources > poller->pollfds_len) {
-		struct pollfd *fds = calloc(poller->fd_event_sources, sizeof(struct pollfd));
-		if (fds == NULL) {
-			return -1;
-		}
-		free(poller->pollfds);
-		poller->pollfds = fds;
-		poller->pollfds_len = poller->fd_event_sources;
-	}
-
-	ssize_t idx = 0;
-	for (struct linked_list *elem = poller->fds.next; elem != &poller->fds; elem = elem->next) {
-		struct event_source_fd *bpfd = (struct event_source_fd *)elem;
-		bpfd->pollfd_idx = idx++;
-		poller->pollfds[bpfd->pollfd_idx] = (struct pollfd){
-			.fd = bpfd->fd,
-			.events = event_mask_to_poll_mask(bpfd->mask),
-		};
-	}
-
-	poller->pollfds_dirty = false;
-	return 0;
-}
-
 struct event_source_fd *poller_add_fd(struct poller *poller, int fd, uint32_t mask,
 				      event_source_fd_func_t func, void *data) {
 	struct event_source_fd *bpfd = calloc(1, sizeof(struct event_source_fd));
@@ -144,7 +127,7 @@ struct event_source_fd *poller_add_fd(struct poller *poller, int fd, uint32_t ma
 	bpfd->poller = poller;
 	bpfd->pollfd_idx = -1;
 	poller->fd_event_sources += 1;
-	poller->pollfds_dirty = true;
+	poller->dirty = true;
 	linked_list_insert(&poller->fds, &bpfd->link);
 	return (struct event_source_fd *)bpfd;
 }
@@ -153,7 +136,7 @@ int event_source_fd_destroy(struct event_source_fd *event_source) {
 	struct event_source_fd *bpfd = (struct event_source_fd *)event_source;
 	struct poller *poller = bpfd->poller;
 	poller->fd_event_sources -= 1;
-	poller->pollfds_dirty = true;
+	poller->dirty = true;
 	bpfd->killed = true;
 	return 0;
 }
@@ -162,21 +145,8 @@ int event_source_fd_update(struct event_source_fd *event_source, uint32_t mask) 
 	struct event_source_fd *bpfd = (struct event_source_fd *)event_source;
 	struct poller *poller = bpfd->poller;
 	event_source->mask = mask;
-	poller->pollfds_dirty = true;
+	poller->dirty = true;
 	return 0;
-}
-
-static void signal_handler(int sig) {
-	if (global_poller == NULL) {
-		return;
-	}
-	for (struct linked_list *elem = global_poller->signals.next;
-	     elem != &global_poller->signals; elem = elem->next) {
-		struct event_source_signal *bps = (struct event_source_signal *)elem;
-		if (bps->signal == sig) {
-			bps->raised = true;
-		}
-	}
 }
 
 struct event_source_signal *poller_add_signal(struct poller *poller, int signal,
@@ -224,17 +194,101 @@ int event_source_signal_destroy(struct event_source_signal *event_source) {
 		sigaction(bps->signal, &sa, NULL);
 	}
 
+	poller->dirty = true;
 	bps->killed = true;
 	return 0;
 }
 
-int poller_poll(struct poller *poller) {
-	if (regenerate_pollfds(poller) == -1) {
-		return -1;
+static int event_mask_to_poll_mask(uint32_t event_mask) {
+	int poll_mask = 0;
+	if (event_mask & EVENT_READABLE) {
+		poll_mask |= POLLIN;
+	}
+	if (event_mask & EVENT_WRITABLE) {
+		poll_mask |= POLLOUT;
+	}
+	return poll_mask;
+}
+
+static uint32_t poll_mask_to_event_mask(int poll_mask) {
+	uint32_t event_mask = 0;
+	if (poll_mask & POLLIN) {
+		event_mask |= EVENT_READABLE;
+	}
+	if (poll_mask & POLLOUT) {
+		event_mask |= EVENT_WRITABLE;
+	}
+	if (poll_mask & POLLERR) {
+		event_mask |= EVENT_ERROR;
+	}
+	if (poll_mask & POLLHUP) {
+		event_mask |= EVENT_HANGUP;
+	}
+	return event_mask;
+}
+
+static int regenerate(struct poller *poller) {
+	if (poller->fd_event_sources > poller->pollfds_len) {
+		struct pollfd *fds =
+			realloc(poller->pollfds, poller->fd_event_sources * sizeof(struct pollfd));
+		if (fds == NULL) {
+			return -1;
+		}
+		poller->pollfds = fds;
+		poller->pollfds_len = poller->fd_event_sources;
 	}
 
-	if (poll(poller->pollfds, poller->fd_event_sources, -1) == -1 && errno != EINTR) {
-		return -1;
+	size_t idx = 0;
+	poller->pollfds[idx++] = (struct pollfd){
+		.fd = poller->signal_fds[0],
+		.events = POLLIN,
+	};
+
+	for (struct linked_list *elem = poller->fds.next; elem != &poller->fds; elem = elem->next) {
+		struct event_source_fd *bpfd = (struct event_source_fd *)elem;
+		if (bpfd->killed) {
+			elem = elem->prev;
+			linked_list_remove(&bpfd->link);
+			free(bpfd);
+		} else {
+			bpfd->pollfd_idx = idx++;
+			assert(bpfd->pollfd_idx < (ssize_t)poller->pollfds_len);
+			poller->pollfds[bpfd->pollfd_idx] = (struct pollfd){
+				.fd = bpfd->fd,
+				.events = event_mask_to_poll_mask(bpfd->mask),
+			};
+		}
+	}
+	assert(idx == poller->fd_event_sources);
+
+	for (struct linked_list *elem = poller->signals.next; elem != &poller->signals;
+	     elem = elem->next) {
+		struct event_source_signal *bps = (struct event_source_signal *)elem;
+		if (bps->killed) {
+			elem = elem->prev;
+			linked_list_remove(&bps->link);
+			free(bps);
+		}
+	}
+
+	return 0;
+}
+
+static void dispatch(struct poller *poller) {
+	if ((poller->pollfds[0].revents & POLLIN) != 0) {
+		char garbage[8];
+		while (read(poller->signal_fds[0], &garbage, sizeof garbage) != -1) {
+		}
+
+		for (struct linked_list *elem = poller->signals.next; elem != &poller->signals;
+		     elem = elem->next) {
+			struct event_source_signal *bps = (struct event_source_signal *)elem;
+			if (!bps->raised || bps->killed) {
+				continue;
+			}
+			bps->func(bps->signal, bps->data);
+			bps->raised = false;
+		}
 	}
 
 	for (struct linked_list *elem = poller->fds.next; elem != &poller->fds; elem = elem->next) {
@@ -242,6 +296,7 @@ int poller_poll(struct poller *poller) {
 		if (bpfd->pollfd_idx == -1 || bpfd->killed) {
 			continue;
 		}
+		assert(bpfd->pollfd_idx < (ssize_t)poller->pollfds_len);
 		short revents = poller->pollfds[bpfd->pollfd_idx].revents;
 		if (revents == 0) {
 			continue;
@@ -249,39 +304,21 @@ int poller_poll(struct poller *poller) {
 		bpfd->func(poller->pollfds[bpfd->pollfd_idx].fd, poll_mask_to_event_mask(revents),
 			   bpfd->data);
 	}
+}
 
-	for (struct linked_list *elem = poller->signals.next; elem != &poller->signals;
-	     elem = elem->next) {
-		struct event_source_signal *bps = (struct event_source_signal *)elem;
-		if (!bps->raised || bps->killed) {
-			continue;
+int poller_poll(struct poller *poller) {
+	if (poller->dirty) {
+		if (regenerate(poller) == -1) {
+			return -1;
 		}
-		bps->func(bps->signal, bps->data);
-		bps->raised = false;
+		poller->dirty = false;
 	}
 
-	for (struct linked_list *elem = poller->fds.next; elem != &poller->fds; elem = elem->next) {
-		struct event_source_fd *bpfd = (struct event_source_fd *)elem;
-		if (!bpfd->killed) {
-			continue;
-		}
-
-		elem = elem->prev;
-		linked_list_remove(&bpfd->link);
-		free(bpfd);
+	if (poll(poller->pollfds, poller->fd_event_sources, -1) == -1 && errno != EINTR) {
+		return -1;
 	}
 
-	for (struct linked_list *elem = poller->signals.next; elem != &poller->signals;
-	     elem = elem->next) {
-		struct event_source_signal *bps = (struct event_source_signal *)elem;
-		if (!bps->killed) {
-			continue;
-		}
-
-		elem = elem->prev;
-		linked_list_remove(&bps->link);
-		free(bps);
-	}
+	dispatch(poller);
 
 	return 0;
 }
