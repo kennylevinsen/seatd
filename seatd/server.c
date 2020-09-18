@@ -85,7 +85,7 @@ static int server_handle_vt_acq(int signal, void *data) {
 		return -1;
 	}
 
-	seat_activate(seat);
+	seat_vt_activate(seat);
 	return 0;
 }
 

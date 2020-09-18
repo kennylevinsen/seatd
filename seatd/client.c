@@ -66,6 +66,7 @@ struct client *client_create(struct server *server, int client_fd) {
 	client->uid = uid;
 	client->gid = gid;
 	client->pid = pid;
+	client->session = -1;
 	client->server = server;
 	client->connection.fd = client_fd;
 	linked_list_init(&client->devices);
@@ -451,17 +452,5 @@ int client_handle_connection(int fd, uint32_t mask, void *data) {
 
 fail:
 	client_destroy(client);
-	return -1;
-}
-
-int client_get_session(const struct client *client) {
-	if (client->seat == NULL || client->seat->active_client != client) {
-		return -1;
-	}
-	if (client->seat->vt_bound) {
-		return client->seat_vt;
-	}
-	// TODO: Store some session sequence
-	errno = ENOSYS;
 	return -1;
 }

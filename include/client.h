@@ -21,7 +21,7 @@ struct client {
 	gid_t gid;
 
 	struct seat *seat;
-	int seat_vt;
+	int session;
 	bool pending_disable;
 
 	struct linked_list devices;
@@ -31,7 +31,6 @@ struct client *client_create(struct server *server, int client_fd);
 void client_destroy(struct client *client);
 
 int client_handle_connection(int fd, uint32_t mask, void *data);
-int client_get_session(const struct client *client);
 int client_send_enable_seat(struct client *client);
 int client_send_disable_seat(struct client *client);
 

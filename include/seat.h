@@ -33,9 +33,9 @@ struct seat {
 	struct client *next_client;
 
 	bool vt_bound;
-	bool vt_pending_ack;
-	int next_vt;
-	int curttyfd;
+	int cur_ttyfd;
+	int cur_vt;
+	int session_cnt;
 };
 
 struct seat *seat_create(const char *name, bool vt_bound);
@@ -52,7 +52,7 @@ int seat_close_device(struct client *client, struct seat_device *seat_device);
 struct seat_device *seat_find_device(struct client *client, int device_id);
 
 int seat_set_next_session(struct client *client, int session);
-int seat_activate(struct seat *seat);
+int seat_vt_activate(struct seat *seat);
 int seat_prepare_vt_switch(struct seat *seat);
 
 #endif

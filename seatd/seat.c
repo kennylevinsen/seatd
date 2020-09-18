@@ -25,8 +25,9 @@ struct seat *seat_create(const char *seat_name, bool vt_bound) {
 	}
 	linked_list_init(&seat->clients);
 	seat->vt_bound = vt_bound;
-	seat->curttyfd = -1;
 	seat->seat_name = strdup(seat_name);
+	seat->cur_vt = 0;
+	seat->cur_ttyfd = -1;
 	if (seat->seat_name == NULL) {
 		free(seat);
 		return NULL;
@@ -42,11 +43,71 @@ void seat_destroy(struct seat *seat) {
 		assert(client->seat == seat);
 		client_destroy(client);
 	}
-	assert(seat->curttyfd == -1);
-
+	assert(seat->cur_ttyfd == -1);
 	linked_list_remove(&seat->link);
 	free(seat->seat_name);
 	free(seat);
+}
+
+static void seat_update_vt(struct seat *seat) {
+	int tty0fd = terminal_open(0);
+	if (tty0fd == -1) {
+		log_errorf("unable to open tty0: %s", strerror(errno));
+		return;
+	}
+	seat->cur_vt = terminal_current_vt(tty0fd);
+	close(tty0fd);
+}
+
+static int vt_open(struct seat *seat, int vt) {
+	assert(vt != -1);
+	assert(seat->cur_ttyfd == -1);
+	seat->cur_ttyfd = terminal_open(vt);
+	if (seat->cur_ttyfd == -1) {
+		log_errorf("could not open terminal for vt %d: %s", vt, strerror(errno));
+		return -1;
+	}
+
+	terminal_set_process_switching(seat->cur_ttyfd, true);
+	terminal_set_keyboard(seat->cur_ttyfd, false);
+	terminal_set_graphics(seat->cur_ttyfd, true);
+	return 0;
+}
+
+static void vt_close(struct seat *seat) {
+	if (seat->cur_ttyfd == -1) {
+		return;
+	}
+
+	terminal_set_process_switching(seat->cur_ttyfd, true);
+	terminal_set_keyboard(seat->cur_ttyfd, true);
+	terminal_set_graphics(seat->cur_ttyfd, false);
+
+	close(seat->cur_ttyfd);
+	seat->cur_ttyfd = -1;
+}
+
+static int vt_switch(int vt) {
+	int ttyfd = terminal_open(0);
+	if (ttyfd == -1) {
+		log_errorf("could not open terminal: %s", strerror(errno));
+		return -1;
+	}
+	terminal_set_process_switching(ttyfd, true);
+	terminal_switch_vt(ttyfd, vt);
+	close(ttyfd);
+	return 0;
+}
+
+static int vt_ack(void) {
+	int tty0fd = terminal_open(0);
+	if (tty0fd == -1) {
+		log_errorf("unable to open tty0: %s", strerror(errno));
+		return -1;
+	}
+	terminal_ack_switch(tty0fd);
+	close(tty0fd);
+	return 0;
 }
 
 int seat_add_client(struct seat *seat, struct client *client) {
@@ -62,6 +123,23 @@ int seat_add_client(struct seat *seat, struct client *client) {
 		log_error("cannot add client: seat is vt_bound and an active client already exists");
 		return -1;
 	}
+
+	if (client->session != -1) {
+		log_error("cannot add client: client cannot be reused");
+		return -1;
+	}
+
+	if (seat->vt_bound) {
+		seat_update_vt(seat);
+		if (seat->cur_vt == -1) {
+			log_error("could not determine VT for client");
+			return -1;
+		}
+		client->session = seat->cur_vt;
+	} else {
+		client->session = seat->session_cnt++;
+	}
+	log_debugf("registered client %p as session %d", (void *)client, client->session);
 
 	client->seat = seat;
 
@@ -316,24 +394,47 @@ static int seat_activate_device(struct client *client, struct seat_device *seat_
 	return 0;
 }
 
+static int seat_activate(struct seat *seat) {
+	assert(seat);
+
+	if (seat->active_client != NULL) {
+		return 0;
+	}
+
+	struct client *next_client = NULL;
+	if (seat->next_client != NULL) {
+		log_info("activating next queued client");
+		next_client = seat->next_client;
+		seat->next_client = NULL;
+	} else if (linked_list_empty(&seat->clients)) {
+		log_info("no clients on seat to activate");
+		return -1;
+	} else if (seat->vt_bound) {
+		for (struct linked_list *elem = seat->clients.next; elem != &seat->clients;
+		     elem = elem->next) {
+			struct client *client = (struct client *)elem;
+			if (client->session == seat->cur_vt) {
+				log_infof("activating client belonging to VT %d", seat->cur_vt);
+				next_client = client;
+				goto done;
+			}
+		}
+
+		log_infof("no clients belonging to VT %d to activate", seat->cur_vt);
+		return -1;
+	} else {
+		log_info("activating first client on seat");
+		next_client = (struct client *)seat->clients.next;
+	}
+
+done:
+	return seat_open_client(seat, next_client);
+}
+
 int seat_open_client(struct seat *seat, struct client *client) {
 	assert(seat);
 	assert(client);
-
-	if (seat->vt_bound && client->seat_vt == 0) {
-		int tty0fd = terminal_open(0);
-		if (tty0fd == -1) {
-			log_errorf("unable to open tty0: %s", strerror(errno));
-			return -1;
-		}
-		client->seat_vt = terminal_current_vt(tty0fd);
-		close(tty0fd);
-		if (client->seat_vt == -1) {
-			log_errorf("unable to get current VT for client: %s", strerror(errno));
-			client->seat_vt = 0;
-			return -1;
-		}
-	}
+	assert(!client->pending_disable);
 
 	if (seat->active_client != NULL) {
 		log_error("client already active");
@@ -341,19 +442,8 @@ int seat_open_client(struct seat *seat, struct client *client) {
 		return -1;
 	}
 
-	assert(seat->curttyfd == -1);
-
-	if (seat->vt_bound) {
-		int ttyfd = terminal_open(client->seat_vt);
-		if (ttyfd == -1) {
-			log_errorf("unable to open tty for vt %d: %s", client->seat_vt,
-				   strerror(errno));
-			return -1;
-		}
-		terminal_set_process_switching(ttyfd, true);
-		terminal_set_keyboard(ttyfd, false);
-		terminal_set_graphics(ttyfd, true);
-		seat->curttyfd = ttyfd;
+	if (seat->vt_bound && vt_open(seat, client->session) == -1) {
+		return -1;
 	}
 
 	for (struct linked_list *elem = client->devices.next; elem != &client->devices;
@@ -395,8 +485,13 @@ int seat_close_client(struct client *client) {
 
 	client->pending_disable = false;
 	seat->active_client = NULL;
-	seat_activate(seat);
 	log_debug("closed client");
+
+	if (seat->vt_bound) {
+		vt_close(seat);
+	}
+
+	seat_activate(seat);
 	return 0;
 }
 
@@ -408,6 +503,12 @@ static int seat_disable_client(struct client *client) {
 
 	if (seat->active_client != client) {
 		log_error("client not active");
+		errno = EBUSY;
+		return -1;
+	}
+
+	if (client->pending_disable) {
+		log_error("client already pending disable");
 		errno = EBUSY;
 		return -1;
 	}
@@ -439,17 +540,23 @@ int seat_ack_disable_client(struct client *client) {
 	assert(client->seat);
 
 	struct seat *seat = client->seat;
-
-	if (seat->active_client != client || !client->pending_disable) {
-		log_error("client not active or not pending disable");
+	if (!client->pending_disable) {
+		log_error("client not pending disable");
 		errno = EBUSY;
 		return -1;
 	}
 
 	client->pending_disable = false;
-	seat->active_client = NULL;
-	seat_activate(seat);
 	log_debug("disabled client");
+
+	if (seat->active_client == client) {
+		if (seat->vt_bound) {
+			vt_close(seat);
+		}
+
+		seat->active_client = NULL;
+		seat_activate(seat);
+	}
 	return 0;
 }
 
@@ -465,180 +572,81 @@ int seat_set_next_session(struct client *client, int session) {
 		return -1;
 	}
 
-	if (session == client_get_session(client)) {
-		log_info("requested session is already active");
-		return 0;
-	}
-
-	// Check if the session number is valid
 	if (session <= 0) {
 		log_errorf("invalid session value: %d", session);
 		errno = EINVAL;
 		return -1;
 	}
 
-	// Check if a switch is already queued
-	if (seat->next_vt > 0 || seat->next_client != NULL) {
+	if (session == client->session) {
+		log_info("requested session is already active");
+		return 0;
+	}
+
+	if (seat->next_client != NULL) {
 		log_info("switch is already queued");
 		return 0;
 	}
 
-	struct client *target = NULL;
+	if (seat->vt_bound) {
+		log_infof("switching to VT %d from %d", session, seat->cur_vt);
+		if (vt_switch(session) == -1) {
+			log_error("could not switch VT");
+			return -1;
+		}
+		return 0;
+	}
 
+	struct client *target = NULL;
 	for (struct linked_list *elem = seat->clients.next; elem != &seat->clients;
 	     elem = elem->next) {
 		struct client *c = (struct client *)elem;
-		if (client_get_session(c) == session) {
+		if (c->session == session) {
 			target = c;
 			break;
 		}
 	}
 
-	if (target != NULL) {
-		log_info("queuing switch to different client");
-		seat->next_client = target;
-		seat->next_vt = 0;
-	} else if (seat->vt_bound) {
-		log_info("queuing switch to different VT");
-		seat->next_vt = session;
-		seat->next_client = NULL;
-	} else {
+	if (target == NULL) {
 		log_error("no valid switch available");
 		errno = EINVAL;
 		return -1;
 	}
 
+	log_infof("queuing switch client with session %d", session);
+	seat->next_client = target;
 	seat_disable_client(seat->active_client);
 	return 0;
 }
 
-int seat_activate(struct seat *seat) {
+int seat_vt_activate(struct seat *seat) {
 	assert(seat);
-
-	// We already have an active client!
-	if (seat->active_client != NULL) {
-		return 0;
-	}
-
-	int vt = -1;
-	if (seat->vt_bound) {
-		int ttyfd = terminal_open(0);
-		if (ttyfd == -1) {
-			log_errorf("unable to open tty0: %s", strerror(errno));
-			return -1;
-		}
-
-		// If we need to ack a switch, do that
-		if (seat->vt_pending_ack) {
-			log_info("acking pending VT switch");
-			seat->vt_pending_ack = false;
-			if (seat->curttyfd != -1) {
-				terminal_set_process_switching(seat->curttyfd, true);
-				terminal_set_keyboard(seat->curttyfd, true);
-				terminal_set_graphics(seat->curttyfd, false);
-				close(seat->curttyfd);
-				seat->curttyfd = -1;
-			}
-			return 0;
-		}
-
-		// If we're asked to do a simple VT switch, do that
-		if (seat->next_vt > 0) {
-			log_info("executing VT switch");
-			if (seat->curttyfd != -1) {
-				terminal_set_process_switching(seat->curttyfd, true);
-				terminal_set_keyboard(seat->curttyfd, true);
-				terminal_set_graphics(seat->curttyfd, false);
-				close(seat->curttyfd);
-				seat->curttyfd = -1;
-			}
-			terminal_switch_vt(ttyfd, seat->next_vt);
-			seat->next_vt = 0;
-			close(ttyfd);
-			return 0;
-		}
-
-		// We'll need the VT below
-		vt = terminal_current_vt(ttyfd);
-		if (vt == -1) {
-			log_errorf("unable to get vt: %s", strerror(errno));
-			close(ttyfd);
-			return -1;
-		}
-		close(ttyfd);
-	}
-
-	// Try to pick a client for activation
-	struct client *next_client = NULL;
-	if (seat->next_client != NULL) {
-		// A specific client has been requested, use it
-		next_client = seat->next_client;
-		seat->next_client = NULL;
-	} else if (!linked_list_empty(&seat->clients) && seat->vt_bound) {
-		// No client is requested, try to find an applicable one
-		for (struct linked_list *elem = seat->clients.next; elem != &seat->clients;
-		     elem = elem->next) {
-			struct client *client = (struct client *)elem;
-			if (client->seat_vt == vt) {
-				next_client = client;
-				break;
-			}
-		}
-	} else if (!linked_list_empty(&seat->clients)) {
-		next_client = (struct client *)seat->clients.next;
-	}
-
-	if (next_client == NULL) {
-		// No suitable client found
-		log_info("no client suitable for activation");
-		if (seat->vt_bound && seat->curttyfd != -1) {
-			terminal_set_process_switching(seat->curttyfd, false);
-			terminal_set_keyboard(seat->curttyfd, true);
-			terminal_set_graphics(seat->curttyfd, false);
-			close(seat->curttyfd);
-			seat->curttyfd = -1;
-		}
+	if (!seat->vt_bound) {
+		log_debug("VT activation on non VT-bound seat, ignoring");
 		return -1;
 	}
 
-	log_info("activating next client");
-	if (seat->vt_bound && next_client->seat_vt != vt) {
-		int ttyfd = terminal_open(0);
-		if (ttyfd == -1) {
-			log_errorf("unable to open tty0: %s", strerror(errno));
-			return -1;
-		}
-		terminal_switch_vt(ttyfd, next_client->seat_vt);
-		close(ttyfd);
+	log_debug("switching session from VT activation");
+	seat_update_vt(seat);
+	if (seat->active_client == NULL) {
+		seat_activate(seat);
 	}
-
-	return seat_open_client(seat, next_client);
+	return 0;
 }
 
 int seat_prepare_vt_switch(struct seat *seat) {
 	assert(seat);
-
-	if (seat->active_client == NULL) {
-		log_info("no active client, performing switch immediately");
-		int tty0fd = terminal_open(0);
-		if (tty0fd == -1) {
-			log_errorf("unable to open tty0: %s", strerror(errno));
-			return -1;
-		}
-		terminal_ack_switch(tty0fd);
-		close(tty0fd);
-		return 0;
+	if (!seat->vt_bound) {
+		log_debug("VT switch request on non VT-bound seat, ignoring");
+		return -1;
 	}
 
-	if (seat->vt_pending_ack) {
-		log_info("impatient user, killing session to force pending switch");
-		seat_close_client(seat->active_client);
-		return 0;
+	log_debug("acking VT switch");
+	if (seat->active_client != NULL) {
+		seat_disable_client(seat->active_client);
 	}
 
-	log_debug("delaying VT switch acknowledgement");
-
-	seat->vt_pending_ack = true;
-	seat_disable_client(seat->active_client);
+	vt_ack();
+	seat->cur_vt = -1;
 	return 0;
 }
