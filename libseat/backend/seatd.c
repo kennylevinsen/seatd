@@ -288,15 +288,19 @@ static int dispatch(struct backend_seatd *backend) {
 	if (conn_flush(backend) == -1) {
 		return -1;
 	}
-	int opcode = 0, res = 0;
-	while ((res = dispatch_pending(backend, &opcode)) == 0 && opcode == 0) {
+	while (true) {
+		int opcode = 0;
+		if (dispatch_pending(backend, &opcode) == -1) {
+			log_errorf("Could not dispatch pending messages: %s", strerror(errno));
+			return -1;
+		}
+		if (opcode != 0) {
+			break;
+		}
 		if (poll_connection(backend, -1) == -1) {
 			log_errorf("Could not poll connection: %s", strerror(errno));
 			return -1;
 		}
-	}
-	if (res == -1) {
-		return -1;
 	}
 	return 0;
 }
