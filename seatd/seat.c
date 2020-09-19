@@ -227,20 +227,19 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 
 	int device_id = 1;
 	size_t device_count = 0;
+	struct seat_device *device = NULL;
 	for (struct linked_list *elem = client->devices.next; elem != &client->devices;
 	     elem = elem->next) {
-		struct seat_device *device = (struct seat_device *)elem;
+		struct seat_device *old_device = (struct seat_device *)elem;
 
-		// If the device already exists, increase the ref count and
-		// return it.
-		if (strcmp(device->path, path) == 0) {
-			device->ref_cnt++;
-			return device;
+		if (strcmp(old_device->path, sanitized_path) == 0) {
+			old_device->ref_cnt++;
+			device = old_device;
+			goto done;
 		}
 
-		// If the device has a higher id, up our device id
-		if (device->device_id >= device_id) {
-			device_id = device->device_id + 1;
+		if (old_device->device_id >= device_id) {
+			device_id = old_device->device_id + 1;
 		}
 		device_count++;
 	}
@@ -271,7 +270,7 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		abort();
 	}
 
-	struct seat_device *device = calloc(1, sizeof(struct seat_device));
+	device = calloc(1, sizeof(struct seat_device));
 	if (device == NULL) {
 		log_errorf("could not alloc device for '%s': %s", sanitized_path, strerror(errno));
 		close(fd);
@@ -287,55 +286,18 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		return NULL;
 	}
 
-	log_debugf("seat: %p, client: %p, path: '%s', device_id: %d", (void *)seat, (void *)client,
-		   path, device_id);
-
 	device->ref_cnt = 1;
 	device->type = type;
 	device->fd = fd;
 	device->device_id = device_id;
 	device->active = true;
 	linked_list_insert(&client->devices, &device->link);
+
+done:
+	log_debugf("seat: %p, client: %p, path: '%s', device_id: %d, ref_cnt: %d", (void *)seat,
+		   (void *)client, path, device_id, device->ref_cnt);
+
 	return device;
-}
-
-int seat_close_device(struct client *client, struct seat_device *seat_device) {
-	assert(client);
-	assert(client->seat);
-	assert(seat_device && seat_device->fd != -1);
-
-	log_debugf("seat: %p, client: %p, path: '%s', device_id: %d", (void *)client->seat,
-		   (void *)client, seat_device->path, seat_device->device_id);
-
-	seat_device->ref_cnt--;
-	if (seat_device->ref_cnt > 0) {
-		return 0;
-	}
-
-	linked_list_remove(&seat_device->link);
-	if (seat_device->fd != -1) {
-		if (seat_device->active) {
-			switch (seat_device->type) {
-			case SEAT_DEVICE_TYPE_DRM:
-				if (drm_drop_master(seat_device->fd) == -1) {
-					log_debugf("drm_drop_master failed: %s", strerror(errno));
-				}
-				break;
-			case SEAT_DEVICE_TYPE_EVDEV:
-				if (evdev_revoke(seat_device->fd) == -1) {
-					log_debugf("evdev_revoke failed: %s", strerror(errno));
-				}
-				break;
-			default:
-				log_error("invalid seat device type");
-				abort();
-			}
-		}
-		close(seat_device->fd);
-	}
-	free(seat_device->path);
-	free(seat_device);
-	return 0;
 }
 
 static int seat_deactivate_device(struct client *client, struct seat_device *seat_device) {
@@ -364,6 +326,30 @@ static int seat_deactivate_device(struct client *client, struct seat_device *sea
 		abort();
 	}
 	seat_device->active = false;
+	return 0;
+}
+
+int seat_close_device(struct client *client, struct seat_device *seat_device) {
+	assert(client);
+	assert(client->seat);
+	assert(seat_device && seat_device->fd != -1);
+
+	log_debugf("seat: %p, client: %p, path: '%s', device_id: %d, ref_cnt: %d",
+		   (void *)client->seat, (void *)client, seat_device->path, seat_device->device_id,
+		   seat_device->ref_cnt);
+
+	seat_device->ref_cnt--;
+	if (seat_device->ref_cnt > 0) {
+		return 0;
+	}
+
+	linked_list_remove(&seat_device->link);
+	if (seat_device->fd != -1) {
+		seat_deactivate_device(client, seat_device);
+		close(seat_device->fd);
+	}
+	free(seat_device->path);
+	free(seat_device);
 	return 0;
 }
 
