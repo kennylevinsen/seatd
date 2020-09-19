@@ -158,5 +158,6 @@ int main(int argc, char *argv[]) {
 
 	server_finish(&server);
 	unlink(socket_path);
+	log_info("seatd stopped");
 	return 0;
 }
