@@ -309,30 +309,29 @@ int seat_close_device(struct client *client, struct seat_device *seat_device) {
 
 	seat_device->ref_cnt--;
 	if (seat_device->ref_cnt > 0) {
-		// We still have more references to this device, so leave it be.
 		return 0;
 	}
 
-	// The ref count hit zero, so destroy the device
 	linked_list_remove(&seat_device->link);
-	if (seat_device->active && seat_device->fd != -1) {
-		switch (seat_device->type) {
-		case SEAT_DEVICE_TYPE_DRM:
-			if (drm_drop_master(seat_device->fd) == -1) {
-				log_debugf("drm_drop_master failed: %s", strerror(errno));
+	if (seat_device->fd != -1) {
+		if (seat_device->active) {
+			switch (seat_device->type) {
+			case SEAT_DEVICE_TYPE_DRM:
+				if (drm_drop_master(seat_device->fd) == -1) {
+					log_debugf("drm_drop_master failed: %s", strerror(errno));
+				}
+				break;
+			case SEAT_DEVICE_TYPE_EVDEV:
+				if (evdev_revoke(seat_device->fd) == -1) {
+					log_debugf("evdev_revoke failed: %s", strerror(errno));
+				}
+				break;
+			default:
+				log_error("invalid seat device type");
+				abort();
 			}
-			break;
-		case SEAT_DEVICE_TYPE_EVDEV:
-			if (evdev_revoke(seat_device->fd) == -1) {
-				log_debugf("evdev_revoke failed: %s", strerror(errno));
-			}
-			break;
-		default:
-			log_error("invalid seat device type");
-			abort();
 		}
 		close(seat_device->fd);
-		seat_device->fd = -1;
 	}
 	free(seat_device->path);
 	free(seat_device);
