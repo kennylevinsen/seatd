@@ -379,6 +379,7 @@ static struct libseat *_open_seat(struct libseat_seat_listener *listener, void *
 		goto backend_error;
 	}
 
+	execute_events(backend);
 	return &backend->base;
 
 backend_error:
@@ -412,10 +413,12 @@ static int close_seat(struct libseat *base) {
 		goto error;
 	}
 
+	execute_events(backend);
 	destroy(backend);
 	return 0;
 
 error:
+	execute_events(backend);
 	destroy(backend);
 	return -1;
 }
@@ -447,16 +450,21 @@ static int open_device(struct libseat *base, const char *path, int *fd) {
 	if (conn_put(backend, &header, sizeof header) == -1 ||
 	    conn_put(backend, &msg, sizeof msg) == -1 || conn_put(backend, path, pathlen) == -1 ||
 	    dispatch(backend) == -1) {
-		return -1;
+		goto error;
 	}
 
 	struct proto_server_device_opened rmsg;
 	if (read_header(backend, SERVER_DEVICE_OPENED, sizeof rmsg, false) == SIZE_MAX ||
 	    conn_get(backend, &rmsg, sizeof rmsg) == -1 || conn_get_fd(backend, fd)) {
-		return -1;
+		goto error;
 	}
 
+	execute_events(backend);
 	return rmsg.device_id;
+
+error:
+	execute_events(backend);
+	return -1;
 }
 
 static int close_device(struct libseat *base, int device_id) {
@@ -479,14 +487,19 @@ static int close_device(struct libseat *base, int device_id) {
 	};
 	if (conn_put(backend, &header, sizeof header) == -1 ||
 	    conn_put(backend, &msg, sizeof msg) == -1 || dispatch(backend) == -1) {
-		return -1;
+		goto error;
 	}
 
 	if (read_header(backend, SERVER_DEVICE_CLOSED, 0, false) == SIZE_MAX) {
-		return -1;
+		goto error;
 	}
 
+	execute_events(backend);
 	return 0;
+
+error:
+	execute_events(backend);
+	return -1;
 }
 
 static int switch_session(struct libseat *base, int session) {
