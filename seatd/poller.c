@@ -111,6 +111,7 @@ int poller_finish(struct poller *poller) {
 		free(bps);
 	}
 	free(poller->pollfds);
+	global_poller = NULL;
 	return 0;
 }
 

@@ -183,6 +183,14 @@ test(
                 include_directories: [include_directories('.', 'include')],
         )
 )
+test(
+        'poller',
+        executable(
+                'poller_test',
+                ['common/linked_list.c', 'seatd/poller.c', 'tests/poller.c'],
+                include_directories: [include_directories('.', 'include')],
+        )
+)
 
 scdoc = dependency('scdoc', required: get_option('man-pages'), version: '>= 1.9.7', native: true)
 
