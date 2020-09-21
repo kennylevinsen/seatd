@@ -72,7 +72,7 @@ static int seatd_connect(void) {
 		path = SEATD_DEFAULTPATH;
 	}
 	addr.unix.sun_family = AF_UNIX;
-	strncpy(addr.unix.sun_path, path, sizeof addr.unix.sun_path);
+	strncpy(addr.unix.sun_path, path, sizeof addr.unix.sun_path - 1);
 	socklen_t size = offsetof(struct sockaddr_un, sun_path) + strlen(addr.unix.sun_path);
 	if (connect(fd, &addr.generic, size) == -1) {
 		log_debugf("Could not connect to socket: %s", strerror(errno));
