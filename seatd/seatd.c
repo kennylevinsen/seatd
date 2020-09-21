@@ -17,7 +17,7 @@
 
 #define LISTEN_BACKLOG 16
 
-static int open_socket(char *path, int uid, int gid) {
+static int open_socket(const char *path, int uid, int gid) {
 	union {
 		struct sockaddr_un unix;
 		struct sockaddr generic;
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
 
 	int c;
 	int uid = 0, gid = 0;
-	char *socket_path = getenv("SEATD_SOCK");
+	const char *socket_path = getenv("SEATD_SOCK");
 	while ((c = getopt(argc, argv, "vhs:g:u:")) != -1) {
 		switch (c) {
 		case 's':
@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (socket_path == NULL) {
-		socket_path = "/run/seatd.sock";
+		socket_path = SEATD_DEFAULTPATH;
 		struct stat st;
 		if (stat(socket_path, &st) == 0) {
 			log_info("removing leftover seatd socket");

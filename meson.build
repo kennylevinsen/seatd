@@ -14,6 +14,16 @@ project(
 # Bump whenever ABI-breaking changes occur.
 libseat_soversion = 1
 
+defaultpath = get_option('defaultpath')
+if defaultpath == ''
+	system = target_machine.system()
+	if system == 'linux'
+		defaultpath = '/run/seatd.sock'
+	else
+		defaultpath = '/var/run/seatd.sock'
+	endif
+endif
+
 add_project_arguments(
 	[
 		'-Wundef',
@@ -32,6 +42,7 @@ add_project_arguments(
 		'-D_XOPEN_SOURCE=700',
 		'-D__BSD_VISIBLE',
 		'-DSEATD_VERSION="@0@"'.format(meson.project_version()),
+		'-DSEATD_DEFAULTPATH="@0@"'.format(defaultpath)
 	],
 	language: 'c',
 )

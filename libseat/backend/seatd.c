@@ -67,9 +67,9 @@ static int seatd_connect(void) {
 		close(fd);
 		return -1;
 	}
-	char *path = getenv("SEATD_SOCK");
+	const char *path = getenv("SEATD_SOCK");
 	if (path == NULL) {
-		path = "/run/seatd.sock";
+		path = SEATD_DEFAULTPATH;
 	}
 	addr.unix.sun_family = AF_UNIX;
 	strncpy(addr.unix.sun_path, path, sizeof addr.unix.sun_path);
