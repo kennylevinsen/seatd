@@ -87,8 +87,8 @@ static void vt_close(struct seat *seat) {
 	seat->cur_ttyfd = -1;
 }
 
-static int vt_switch(int vt) {
-	int ttyfd = terminal_open(0);
+static int vt_switch(struct seat *seat, int vt) {
+	int ttyfd = terminal_open(seat->cur_vt);
 	if (ttyfd == -1) {
 		log_errorf("could not open terminal: %s", strerror(errno));
 		return -1;
@@ -99,8 +99,8 @@ static int vt_switch(int vt) {
 	return 0;
 }
 
-static int vt_ack(void) {
-	int tty0fd = terminal_open(0);
+static int vt_ack(struct seat *seat) {
+	int tty0fd = terminal_open(seat->cur_vt);
 	if (tty0fd == -1) {
 		log_errorf("unable to open tty0: %s", strerror(errno));
 		return -1;
@@ -575,7 +575,7 @@ int seat_set_next_session(struct client *client, int session) {
 
 	if (seat->vt_bound) {
 		log_infof("switching to VT %d from %d", session, seat->cur_vt);
-		if (vt_switch(session) == -1) {
+		if (vt_switch(seat, session) == -1) {
 			log_error("could not switch VT");
 			return -1;
 		}
@@ -625,13 +625,14 @@ int seat_prepare_vt_switch(struct seat *seat) {
 		log_debug("VT switch request on non VT-bound seat, ignoring");
 		return -1;
 	}
+	seat_update_vt(seat);
 
 	log_debug("acking VT switch");
 	if (seat->active_client != NULL) {
 		seat_disable_client(seat->active_client);
 	}
 
-	vt_ack();
+	vt_ack(seat);
 	seat->cur_vt = -1;
 	return 0;
 }
