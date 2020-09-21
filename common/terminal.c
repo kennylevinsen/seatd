@@ -199,7 +199,7 @@ int terminal_set_process_switching(int fd, bool enable) {
 }
 
 int terminal_switch_vt(int fd, int vt) {
-	log_debugf("switching to vt %d", vt);
+	log_debugf("switching to VT %d", vt);
 	if (ioctl(fd, VT_ACTIVATE, vt) == -1) {
 		log_errorf("could not activate VT: %s", strerror(errno));
 		return -1;
@@ -208,10 +208,20 @@ int terminal_switch_vt(int fd, int vt) {
 	return 0;
 }
 
-int terminal_ack_switch(int fd) {
-	log_debug("acking vt switch");
+int terminal_ack_release(int fd) {
+	log_debug("acking VT release");
+	if (ioctl(fd, VT_RELDISP, 1) == -1) {
+		log_errorf("could not ack VT release: %s", strerror(errno));
+		return -1;
+	}
+
+	return 0;
+}
+
+int terminal_ack_acquire(int fd) {
+	log_debug("acking VT acquire");
 	if (ioctl(fd, VT_RELDISP, VT_ACKACQ) == -1) {
-		log_errorf("could not ack VT switch: %s", strerror(errno));
+		log_errorf("could not ack VT acquire: %s", strerror(errno));
 		return -1;
 	}
 

@@ -99,13 +99,17 @@ static int vt_switch(struct seat *seat, int vt) {
 	return 0;
 }
 
-static int vt_ack(struct seat *seat) {
+static int vt_ack(struct seat *seat, bool release) {
 	int tty0fd = terminal_open(seat->cur_vt);
 	if (tty0fd == -1) {
 		log_errorf("unable to open tty0: %s", strerror(errno));
 		return -1;
 	}
-	terminal_ack_switch(tty0fd);
+	if (release) {
+		terminal_ack_release(tty0fd);
+	} else {
+		terminal_ack_acquire(tty0fd);
+	}
 	close(tty0fd);
 	return 0;
 }
@@ -610,29 +614,29 @@ int seat_vt_activate(struct seat *seat) {
 		log_debug("VT activation on non VT-bound seat, ignoring");
 		return -1;
 	}
-
-	log_debug("switching session from VT activation");
 	seat_update_vt(seat);
+	log_debug("activating VT");
+	vt_ack(seat, false);
 	if (seat->active_client == NULL) {
 		seat_activate(seat);
 	}
 	return 0;
 }
 
-int seat_prepare_vt_switch(struct seat *seat) {
+int seat_vt_release(struct seat *seat) {
 	assert(seat);
 	if (!seat->vt_bound) {
-		log_debug("VT switch request on non VT-bound seat, ignoring");
+		log_debug("VT release request on non VT-bound seat, ignoring");
 		return -1;
 	}
 	seat_update_vt(seat);
 
-	log_debug("acking VT switch");
+	log_debug("releasing VT");
 	if (seat->active_client != NULL) {
 		seat_disable_client(seat->active_client);
 	}
 
-	vt_ack(seat);
+	vt_ack(seat, true);
 	seat->cur_vt = -1;
 	return 0;
 }

@@ -53,6 +53,6 @@ struct seat_device *seat_find_device(struct client *client, int device_id);
 
 int seat_set_next_session(struct client *client, int session);
 int seat_vt_activate(struct seat *seat);
-int seat_prepare_vt_switch(struct seat *seat);
+int seat_vt_release(struct seat *seat);
 
 #endif

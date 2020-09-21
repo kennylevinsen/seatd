@@ -97,7 +97,7 @@ static int server_handle_vt_rel(int signal, void *data) {
 		return -1;
 	}
 
-	seat_prepare_vt_switch(seat);
+	seat_vt_release(seat);
 	return 0;
 }
 
