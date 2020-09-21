@@ -38,6 +38,38 @@ static int get_tty_path(int tty, char path[static TTYPATHLEN]) {
 	const size_t prefix_len = sizeof(prefix) - 1;
 	strcpy(path, prefix);
 
+	// The FreeBSD VT_GETACTIVE is implemented in the kernel as follows:
+	//
+	//	static int
+	//	vtterm_ioctl(struct terminal *tm, u_long cmd, caddr_t data,
+	// 		struct thread *td)
+	//	{
+	//		struct vt_window *vw = tm->tm_softc;
+	//		struct vt_device *vd = vw->vw_device;
+	//		...
+	//		switch (cmd) {
+	//		...
+	//		case VT_GETACTIVE:
+	//			*(int *)data = vd->vd_curwindow->vw_number + 1;
+	//			return (0);
+	//		...
+	//		}
+	//		...
+	//	}
+	//
+	// The side-effect here being that the returned VT number is one
+	// greater than the internal VT number. The internal number is what is
+	// used to number the TTY device, while the external number is what we
+	// use in e.g. VT switching.
+	//
+	// We subtract one from the requested TTY number to compensate. If the
+	// user asked for TTY 0 (which is special on Linux), we just give them
+	// the first tty.
+
+	if (tty > 0) {
+		tty--;
+	}
+
 	// The FreeBSD tty name is constructed in the kernel as follows:
 	//
 	//	static void
@@ -139,35 +171,11 @@ int terminal_current_vt(int fd) {
 		return -1;
 	}
 
-	// The FreeBSD VT_GETACTIVE is implemented in the kernel as follows:
-	//
-	//	static int
-	//	vtterm_ioctl(struct terminal *tm, u_long cmd, caddr_t data,
-	// 		struct thread *td)
-	//	{
-	//		struct vt_window *vw = tm->tm_softc;
-	//		struct vt_device *vd = vw->vw_device;
-	//		...
-	//		switch (cmd) {
-	//		...
-	//		case VT_GETACTIVE:
-	//			*(int *)data = vd->vd_curwindow->vw_number + 1;
-	//			return (0);
-	//		...
-	//		}
-	//		...
-	//	}
-	//
-	// The side-effect here being that the returned VT number is one
-	// greater than the internal VT number, which is what is used for e.g.
-	// numbering the associated VT. To simplify things, we subtract one
-	// from the returned VT number before returning it.
-
-	if (vt < 1) {
+	if (vt == -1) {
 		log_errorf("invalid vt: %d", vt);
 		return -1;
 	}
-	return vt - 1;
+	return vt;
 #else
 #error Unsupported platform
 #endif
