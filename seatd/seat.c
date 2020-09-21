@@ -61,7 +61,10 @@ static void seat_update_vt(struct seat *seat) {
 
 static int vt_open(struct seat *seat, int vt) {
 	assert(vt != -1);
-	assert(seat->cur_ttyfd == -1);
+	if (seat->cur_ttyfd != -1) {
+		terminal_set_process_switching(seat->cur_ttyfd, true);
+		close(seat->cur_ttyfd);
+	}
 	seat->cur_ttyfd = terminal_open(vt);
 	if (seat->cur_ttyfd == -1) {
 		log_errorf("could not open terminal for vt %d: %s", vt, strerror(errno));
@@ -432,7 +435,7 @@ int seat_open_client(struct seat *seat, struct client *client) {
 	}
 
 	if (seat->vt_bound && vt_open(seat, client->session) == -1) {
-		return -1;
+		goto error;
 	}
 
 	for (struct linked_list *elem = client->devices.next; elem != &client->devices;
@@ -446,11 +449,17 @@ int seat_open_client(struct seat *seat, struct client *client) {
 	seat->active_client = client;
 	if (client_send_enable_seat(client) == -1) {
 		log_error("could not send enable signal");
-		return -1;
+		goto error;
 	}
 
 	log_info("client successfully enabled");
 	return 0;
+
+error:
+	if (seat->vt_bound) {
+		vt_close(seat);
+	}
+	return -1;
 }
 
 int seat_close_client(struct client *client) {
@@ -476,11 +485,10 @@ int seat_close_client(struct client *client) {
 	seat->active_client = NULL;
 	log_debug("closed client");
 
-	if (seat->vt_bound) {
+	seat_activate(seat);
+	if (seat->vt_bound && seat->active_client == NULL) {
 		vt_close(seat);
 	}
-
-	seat_activate(seat);
 	return 0;
 }
 
@@ -538,14 +546,16 @@ int seat_ack_disable_client(struct client *client) {
 	client->pending_disable = false;
 	log_debug("disabled client");
 
-	if (seat->active_client == client) {
-		if (seat->vt_bound) {
-			vt_close(seat);
-		}
-
-		seat->active_client = NULL;
-		seat_activate(seat);
+	if (seat->active_client != client) {
+		return 0;
 	}
+
+	seat->active_client = NULL;
+	seat_activate(seat);
+	if (seat->vt_bound && seat->active_client == NULL) {
+		vt_close(seat);
+	}
+
 	return 0;
 }
 
