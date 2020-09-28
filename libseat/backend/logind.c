@@ -130,7 +130,6 @@ static int close_device(struct libseat *base, int device_id) {
 	struct stat st = {0};
 	if (fstat(fd, &st) < 0) {
 		log_errorf("Could not stat fd %d", fd);
-		close(fd);
 		return -1;
 	}
 	if (dev_is_drm(st.st_rdev)) {
@@ -138,7 +137,6 @@ static int close_device(struct libseat *base, int device_id) {
 		log_debugf("DRM device closed, current total: %d", session->has_drm);
 		assert(session->has_drm >= 0);
 	}
-	close(fd);
 
 	sd_bus_message *msg = NULL;
 	sd_bus_error error = SD_BUS_ERROR_NULL;
