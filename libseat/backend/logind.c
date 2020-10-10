@@ -163,8 +163,7 @@ static int switch_session(struct libseat *base, int s) {
 	sd_bus_message *msg = NULL;
 	sd_bus_error error = SD_BUS_ERROR_NULL;
 
-	int ret = sd_bus_call_method(session->bus, "org.freedesktop.login1",
-				     session->seat_path,
+	int ret = sd_bus_call_method(session->bus, "org.freedesktop.login1", session->seat_path,
 				     "org.freedesktop.login1.Seat", "SwitchTo", &error, &msg, "u",
 				     (uint32_t)s);
 	if (ret < 0) {
