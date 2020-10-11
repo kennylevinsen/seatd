@@ -40,22 +40,39 @@ struct libseat *libseat_open_seat(struct libseat_seat_listener *listener, void *
 	log_init();
 
 	char *backend_type = getenv("LIBSEAT_BACKEND");
+	if (backend_type != NULL) {
+		const struct named_backend *iter = impls;
+		while (iter->backend != NULL && strcmp(backend_type, iter->name) != 0) {
+			iter++;
+		}
+		if (iter == NULL || iter->backend == NULL) {
+			log_errorf("No backend matched name '%s'", backend_type);
+			errno = EINVAL;
+			return NULL;
+		}
+		struct libseat *backend = iter->backend->open_seat(listener, data);
+		if (backend == NULL) {
+			log_errorf("Backend '%s' failed to open seat: %s", iter->name,
+				   strerror(errno));
+			return NULL;
+		}
+		log_infof("Seat opened with backend '%s'", iter->name);
+		return backend;
+	}
+
 	struct libseat *backend = NULL;
 	for (const struct named_backend *iter = impls; iter->backend != NULL; iter++) {
-		if (backend_type != NULL && strcmp(backend_type, iter->name) != 0) {
-			continue;
-		}
-		log_infof("Trying backend '%s'", iter->name);
 		backend = iter->backend->open_seat(listener, data);
 		if (backend != NULL) {
 			log_infof("Seat opened with backend '%s'", iter->name);
-			break;
+			return backend;
 		}
+		log_infof("Backend '%s' failed to open seat, skipping", iter->name);
 	}
-	if (backend == NULL) {
-		errno = ENOSYS;
-	}
-	return backend;
+
+	log_error("No backend was able to open a seat");
+	errno = ENOSYS;
+	return NULL;
 }
 
 int libseat_disable_seat(struct libseat *seat) {
