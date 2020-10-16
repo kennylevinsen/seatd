@@ -43,4 +43,4 @@ Instead of giving user shell developers more work, libseat aims to make supporti
 
 ## I want more
 
-Go to #kennylevinsen @ chat.freenode.net to discuss, or use [~kennylevinsen/public-inbox@lists.sr.ht](https://lists.sr.ht/~kennylevinsen/public-inbox).
+Go to #kennylevinsen @ chat.freenode.net to discuss, or use [~kennylevinsen/seatd-devel@lists.sr.ht](https://lists.sr.ht/~kennylevinsen/seatd-devel).
