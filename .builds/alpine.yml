@@ -9,25 +9,18 @@ sources:
    - https://git.sr.ht/~kennylevinsen/seatd
 tasks:
    - prepare: |
-      cd seatd
-      meson build -Dseatd=enabled -Dbuiltin=enabled -Dlogind=disabled
+      meson -Dseatd=enabled -Dbuiltin=enabled -Dlogind=disabled build seatd
    - build: |
-      cd seatd
       ninja -C build
    - unittest: |
-      cd seatd
       ninja -C build test
    - scan-build: |
-      cd seatd
       ninja -C build scan-build
       [ -z "$(ls -A build/meson-logs/scanbuild/ 2>/dev/null)" ]
    - smoketest: |
-      cd seatd
-      timeout -s KILL 30s ./.builds/smoketest-seatd.sh
+      timeout -s KILL 30s ./seatd/.builds/smoketest-seatd.sh
    - smoketest-builtin: |
-      cd seatd
-      timeout -s KILL 30s ./.builds/smoketest-builtin.sh
+      timeout -s KILL 30s ./seatd/.builds/smoketest-builtin.sh
    - check-format: |
-      cd seatd
       ninja -C build clang-format
-      git diff --exit-code
+      git -C seatd diff --exit-code
