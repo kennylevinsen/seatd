@@ -356,11 +356,28 @@ static struct libseat *_open_seat(struct libseat_seat_listener *listener, void *
 	backend->base.impl = &seatd_impl;
 	linked_list_init(&backend->pending_events);
 
+	char *seat_name = getenv("SEATD_SEAT");
+	if (seat_name == NULL) {
+		seat_name = "seat0";
+	}
+
+	size_t seatlen = strlen(seat_name) + 1;
+	if (seatlen > MAX_SEAT_LEN) {
+		errno = EINVAL;
+		goto backend_error;
+	}
+
+	struct proto_client_open_seat msg = {
+		.seat_len = (uint16_t)seatlen,
+	};
+
 	struct proto_header header = {
 		.opcode = CLIENT_OPEN_SEAT,
-		.size = 0,
+		.size = sizeof msg + seatlen,
 	};
-	if (conn_put(backend, &header, sizeof header) == -1 || dispatch(backend) == -1) {
+	if (conn_put(backend, &header, sizeof header) == -1 ||
+	    conn_put(backend, &msg, sizeof msg) == -1 ||
+	    conn_put(backend, seat_name, seatlen) == -1 || dispatch(backend) == -1) {
 		goto backend_error;
 	}
 

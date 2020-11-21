@@ -125,29 +125,18 @@ static int client_send_error(struct client *client, int error_code) {
 	return 0;
 }
 
-static char *client_get_seat_name(struct client *client) {
-	(void)client;
-	// TODO: Look up seat for session.
-	return "seat0";
-}
-
-static int handle_open_seat(struct client *client) {
-	char *seat_name = client_get_seat_name(client);
-	if (seat_name == NULL) {
-		log_error("could not get name of target seat");
-		return -1;
-	}
-
+static int handle_open_seat(struct client *client, char *seat_name) {
 	struct seat *seat = server_get_seat(client->server, seat_name);
 	if (seat == NULL) {
 		log_error("unable to find seat by name");
-		return -1;
+		errno = ENOENT;
+		goto fail;
 	}
 
 	linked_list_remove(&client->link);
 	if (seat_add_client(seat, client) == -1) {
 		log_errorf("unable to add client to target seat: %s", strerror(errno));
-		return -1;
+		goto fail;
 	}
 
 	size_t seat_name_len = strlen(seat_name);
@@ -169,6 +158,9 @@ static int handle_open_seat(struct client *client) {
 
 	seat_open_client(seat, client);
 	return 0;
+
+fail:
+	return client_send_error(client, errno);
 }
 
 static int handle_close_seat(struct client *client) {
@@ -310,11 +302,18 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 	int res = 0;
 	switch (opcode) {
 	case CLIENT_OPEN_SEAT: {
-		if (size != 0) {
+		char seat_name[MAX_SEAT_LEN];
+		struct proto_client_open_seat msg;
+		if (sizeof msg > size || connection_get(&client->connection, &msg, sizeof msg) == -1 ||
+		    sizeof msg + msg.seat_len > size || msg.seat_len > MAX_SEAT_LEN) {
 			log_error("protocol error: invalid open_seat message");
 			return -1;
 		}
-		res = handle_open_seat(client);
+		if (connection_get(&client->connection, seat_name, msg.seat_len) == -1) {
+			log_error("protocol error: invalid open_seat message");
+			return -1;
+		}
+		res = handle_open_seat(client, seat_name);
 		break;
 	}
 	case CLIENT_CLOSE_SEAT: {

@@ -31,6 +31,11 @@ struct proto_header {
 	uint16_t size;
 };
 
+struct proto_client_open_seat {
+	uint16_t seat_len;
+	// NULL-terminated byte-sequence seat_len long follows
+};
+
 struct proto_client_open_device {
 	uint16_t path_len;
 	// NULL-terminated byte-sequence path_len long follows
