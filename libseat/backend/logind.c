@@ -245,6 +245,12 @@ static const char *seat_name(struct libseat *base) {
 	return backend->seat;
 }
 
+static int session(struct libseat *base) {
+	(void)base;
+	errno = ENOSYS;
+	return -1;
+}
+
 static struct backend_logind *backend_logind_from_libseat_backend(struct libseat *base) {
 	assert(base->impl == &logind_impl);
 	return (struct backend_logind *)base;
@@ -682,6 +688,7 @@ const struct seat_impl logind_impl = {
 	.open_seat = logind_open_seat,
 	.disable_seat = disable_seat,
 	.close_seat = close_seat,
+	.session = session,
 	.seat_name = seat_name,
 	.open_device = open_device,
 	.close_device = close_device,

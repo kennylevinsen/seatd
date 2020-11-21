@@ -142,6 +142,7 @@ static int handle_open_seat(struct client *client, char *seat_name) {
 	size_t seat_name_len = strlen(seat_name);
 
 	struct proto_server_seat_opened rmsg = {
+		.session = client->session,
 		.seat_name_len = (uint16_t)seat_name_len,
 	};
 	struct proto_header header = {

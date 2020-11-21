@@ -103,6 +103,12 @@ int libseat_close_device(struct libseat *seat, int device_id);
 const char *libseat_seat_name(struct libseat *seat);
 
 /*
+ * Retrieves the session ID of the seat that is currently made available
+ * through the provided libseat instance.
+ */
+int libseat_session(struct libseat *seat);
+
+/*
  * Requests that the seat switches session to the specified session number.
  * For seats that are VT-bound, the session number matches the VT number, and
  * switching session results in a VT switch.

@@ -45,7 +45,8 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "waiting for activation...\n");
 		libseat_dispatch(backend, -1);
 	}
-	fprintf(stderr, "active!\n");
+	fprintf(stderr, "active! seat name: %s, session id: %d\n", libseat_seat_name(backend),
+		libseat_session(backend));
 
 	int fd, device;
 	device = libseat_open_device(backend, file, &fd);

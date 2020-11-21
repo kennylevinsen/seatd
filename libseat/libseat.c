@@ -90,6 +90,11 @@ const char *libseat_seat_name(struct libseat *seat) {
 	return seat->impl->seat_name(seat);
 }
 
+int libseat_session(struct libseat *seat) {
+	assert(seat && seat->impl);
+	return seat->impl->session(seat);
+}
+
 int libseat_open_device(struct libseat *seat, const char *path, int *fd) {
 	assert(seat && seat->impl);
 	return seat->impl->open_device(seat, path, fd);
