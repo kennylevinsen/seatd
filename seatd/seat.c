@@ -139,16 +139,19 @@ int seat_add_client(struct seat *seat, struct client *client) {
 
 	if (client->seat != NULL) {
 		log_error("cannot add client: client is already a member of a seat");
+		errno = EBUSY;
 		return -1;
 	}
 
 	if (seat->vt_bound && seat->active_client != NULL) {
 		log_error("cannot add client: seat is vt_bound and an active client already exists");
+		errno = EBUSY;
 		return -1;
 	}
 
 	if (client->session != -1) {
 		log_error("cannot add client: client cannot be reused");
+		errno = EINVAL;
 		return -1;
 	}
 
@@ -156,6 +159,7 @@ int seat_add_client(struct seat *seat, struct client *client) {
 		seat_update_vt(seat);
 		if (seat->cur_vt == -1) {
 			log_error("could not determine VT for client");
+			errno = EINVAL;
 			return -1;
 		}
 		client->session = seat->cur_vt;
