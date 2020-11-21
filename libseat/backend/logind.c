@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <poll.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -244,6 +245,22 @@ static const char *seat_name(struct libseat *base) {
 		return NULL;
 	}
 	return backend->seat;
+}
+
+static int session(struct libseat *base) {
+	struct backend_logind *backend = backend_logind_from_libseat_backend(base);
+	if (backend->id == NULL) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	unsigned vt;
+	int ret = sd_session_get_vt(backend->id, &vt);
+	if (ret >= 0) {
+		return (int)vt;
+	}
+	errno = -ret;
+	return -1;
 }
 
 static struct backend_logind *backend_logind_from_libseat_backend(struct libseat *base) {
@@ -677,6 +694,7 @@ const struct seat_impl logind_impl = {
 	.open_seat = logind_open_seat,
 	.disable_seat = disable_seat,
 	.close_seat = close_seat,
+	.session = session,
 	.seat_name = seat_name,
 	.open_device = open_device,
 	.close_device = close_device,

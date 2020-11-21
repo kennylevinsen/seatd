@@ -38,6 +38,7 @@ struct backend_seatd {
 	struct linked_list pending_events;
 	bool error;
 
+	int session_id;
 	char seat_name[MAX_SEAT_LEN];
 };
 
@@ -369,6 +370,7 @@ static struct libseat *_open_seat(struct libseat_seat_listener *listener, void *
 	if (size == SIZE_MAX || conn_get(backend, &rmsg, sizeof rmsg) == -1) {
 		goto backend_error;
 	}
+	backend->session_id = rmsg.session_id;
 	if (rmsg.seat_name_len != size - sizeof rmsg) {
 		log_errorf("Invalid message: seat_name_len does not match remaining message size (%d != %zd)",
 			   rmsg.seat_name_len, size);
@@ -426,6 +428,11 @@ error:
 static const char *seat_name(struct libseat *base) {
 	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
 	return backend->seat_name;
+}
+
+static int session(struct libseat *base) {
+	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
+	return backend->session_id;
 }
 
 static int open_device(struct libseat *base, const char *path, int *fd) {
@@ -548,6 +555,7 @@ const struct seat_impl seatd_impl = {
 	.open_seat = open_seat,
 	.disable_seat = disable_seat,
 	.close_seat = close_seat,
+	.session = session,
 	.seat_name = seat_name,
 	.open_device = open_device,
 	.close_device = close_device,
@@ -633,6 +641,7 @@ const struct seat_impl builtin_impl = {
 	.open_seat = builtin_open_seat,
 	.disable_seat = disable_seat,
 	.close_seat = close_seat,
+	.session = session,
 	.seat_name = seat_name,
 	.open_device = open_device,
 	.close_device = close_device,

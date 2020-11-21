@@ -45,6 +45,7 @@ struct proto_client_switch_session {
 };
 
 struct proto_server_seat_opened {
+	int session_id;
 	uint16_t seat_name_len;
 	// NULL-terminated byte-sequence seat_name_len long follows
 };

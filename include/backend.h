@@ -20,6 +20,7 @@ struct seat_impl {
 	int (*disable_seat)(struct libseat *seat);
 	int (*close_seat)(struct libseat *seat);
 	const char *(*seat_name)(struct libseat *seat);
+	int (*session)(struct libseat *seat);
 
 	int (*open_device)(struct libseat *seat, const char *path, int *fd);
 	int (*close_device)(struct libseat *seat, int device_id);
