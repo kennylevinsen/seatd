@@ -315,8 +315,10 @@ int poller_poll(struct poller *poller) {
 		poller->dirty = false;
 	}
 
-	if (poll(poller->pollfds, poller->fd_event_sources, -1) == -1 && errno != EINTR) {
-		return -1;
+	while (poll(poller->pollfds, poller->fd_event_sources, -1) == -1) {
+		if (errno != EINTR) {
+			return -1;
+		}
 	}
 
 	dispatch(poller);
