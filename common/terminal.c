@@ -182,7 +182,7 @@ int terminal_current_vt(int fd) {
 }
 
 int terminal_set_process_switching(int fd, bool enable) {
-	log_debug("setting process switching");
+	log_debugf("setting process switching to %d", enable);
 	struct vt_mode mode = {
 		.mode = enable ? VT_PROCESS : VT_AUTO,
 		.waitv = 0,
@@ -192,7 +192,8 @@ int terminal_set_process_switching(int fd, bool enable) {
 	};
 
 	if (ioctl(fd, VT_SETMODE, &mode) == -1) {
-		log_errorf("could not set VT mode: %s", strerror(errno));
+		log_errorf("could not set VT mode to %s process switching: %s",
+			   enable ? "enable" : "disable", strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -201,7 +202,7 @@ int terminal_set_process_switching(int fd, bool enable) {
 int terminal_switch_vt(int fd, int vt) {
 	log_debugf("switching to VT %d", vt);
 	if (ioctl(fd, VT_ACTIVATE, vt) == -1) {
-		log_errorf("could not activate VT: %s", strerror(errno));
+		log_errorf("could not activate VT %d: %s", vt, strerror(errno));
 		return -1;
 	}
 
@@ -231,7 +232,8 @@ int terminal_ack_acquire(int fd) {
 int terminal_set_keyboard(int fd, bool enable) {
 	log_debugf("setting KD keyboard state to %d", enable);
 	if (ioctl(fd, KDSKBMODE, enable ? K_ENABLE : K_DISABLE) == -1) {
-		log_errorf("could not set KD keyboard mode: %s", strerror(errno));
+		log_errorf("could not set KD keyboard mode to %s: %s",
+			   enable ? "enabled" : "disabled", strerror(errno));
 		return -1;
 	}
 #if defined(__FreeBSD__)
@@ -246,7 +248,8 @@ int terminal_set_keyboard(int fd, bool enable) {
 		cfmakeraw(&tios);
 	}
 	if (tcsetattr(fd, TCSAFLUSH, &tios) == -1) {
-		log_errorf("could not set terminal mode: %s", strerror(errno));
+		log_errorf("could not set terminal mode to %s: %s", enable ? "sane" : "raw",
+			   strerror(errno));
 		return -1;
 	}
 #endif
@@ -256,7 +259,8 @@ int terminal_set_keyboard(int fd, bool enable) {
 int terminal_set_graphics(int fd, bool enable) {
 	log_debugf("setting KD graphics state to %d", enable);
 	if (ioctl(fd, KDSETMODE, enable ? KD_GRAPHICS : KD_TEXT) == -1) {
-		log_errorf("could not set KD graphics mode: %s", strerror(errno));
+		log_errorf("could not set KD graphics mode to %s: %s", enable ? "graphics" : "text",
+			   strerror(errno));
 		return -1;
 	}
 	return 0;
