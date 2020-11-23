@@ -132,13 +132,12 @@ int server_add_client(struct server *server, int fd) {
 	client->event_source =
 		poller_add_fd(&server->poller, fd, EVENT_READABLE, client_handle_connection, client);
 	if (client->event_source == NULL) {
-		client_destroy(client);
 		log_errorf("could not add client socket to poller: %s", strerror(errno));
+		client_destroy(client);
 		return -1;
 	}
 	log_infof("new client connected (pid: %d, uid: %d, gid: %d)", client->pid, client->uid,
 		  client->gid);
-	linked_list_insert(&server->idle_clients, &client->link);
 	return 0;
 }
 

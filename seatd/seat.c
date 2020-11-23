@@ -149,9 +149,8 @@ int seat_add_client(struct seat *seat, struct client *client) {
 	log_debugf("registered client %p as session %d", (void *)client, client->session);
 
 	client->seat = seat;
-
-	linked_list_insert(&seat->clients, &client->link);
 	log_debug("added client");
+
 	return 0;
 }
 
@@ -160,10 +159,6 @@ int seat_remove_client(struct client *client) {
 	assert(client->seat);
 
 	struct seat *seat = client->seat;
-
-	// We must first remove the client to avoid reactivation
-	linked_list_remove(&client->link);
-
 	if (seat->next_client == client) {
 		seat->next_client = NULL;
 	}

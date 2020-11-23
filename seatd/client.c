@@ -70,6 +70,7 @@ struct client *client_create(struct server *server, int client_fd) {
 	client->server = server;
 	client->connection.fd = client_fd;
 	linked_list_init(&client->devices);
+	linked_list_insert(&server->idle_clients, &client->link);
 	return client;
 }
 
@@ -80,14 +81,9 @@ void client_destroy(struct client *client) {
 		close(client->connection.fd);
 		client->connection.fd = -1;
 	}
+	linked_list_remove(&client->link);
 	if (client->seat != NULL) {
-		// This should also close and remove all devices. This unlinks
-		// the client.
 		seat_remove_client(client);
-	} else {
-		// If we are not a member of a seat, we will be on the idle
-		// clients list, so unlink the client manually.
-		linked_list_remove(&client->link);
 	}
 	if (client->event_source != NULL) {
 		event_source_fd_destroy(client->event_source);
@@ -149,6 +145,7 @@ static int handle_open_seat(struct client *client) {
 		log_errorf("unable to add client to target seat: %s", strerror(errno));
 		return -1;
 	}
+	linked_list_insert(&seat->clients, &client->link);
 
 	size_t seat_name_len = strlen(seat_name);
 
@@ -177,6 +174,7 @@ static int handle_close_seat(struct client *client) {
 		return -1;
 	}
 
+	linked_list_remove(&client->link);
 	if (seat_remove_client(client) == -1) {
 		log_error("unable to remove client from seat");
 		return -1;
