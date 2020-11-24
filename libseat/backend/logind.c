@@ -172,7 +172,7 @@ static int switch_session(struct libseat *base, int s) {
 
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(msg);
-	return ret >= 0;
+	return ret < 0 ? -1 : 0;
 }
 
 static int disable_seat(struct libseat *base) {
