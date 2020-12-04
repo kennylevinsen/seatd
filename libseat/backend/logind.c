@@ -39,7 +39,6 @@ struct backend_logind {
 	char *path;
 	char *seat_path;
 
-	bool can_graphical;
 	bool active;
 	bool initial_setup;
 	int has_drm;
@@ -384,8 +383,7 @@ static int properties_changed(sd_bus_message *msg, void *userdata, sd_bus_error 
 			goto error;
 		}
 
-		if ((is_session && strcmp(s, "Active") == 0) ||
-		    (is_seat && strcmp(s, "CanGraphical"))) {
+		if (is_session && strcmp(s, "Active") == 0) {
 			int ret;
 			ret = sd_bus_message_enter_container(msg, 'v', "b");
 			if (ret < 0) {
@@ -399,11 +397,7 @@ static int properties_changed(sd_bus_message *msg, void *userdata, sd_bus_error 
 			}
 
 			log_debugf("%s state changed: %d", s, value);
-			if (is_session) {
-				set_active(session, value);
-			} else {
-				session->can_graphical = value;
-			}
+			set_active(session, value);
 			return 0;
 		} else {
 			sd_bus_message_skip(msg, "{sv}");
@@ -427,12 +421,10 @@ static int properties_changed(sd_bus_message *msg, void *userdata, sd_bus_error 
 	// PropertiesChanged arg 3: changed properties without values
 	sd_bus_message_enter_container(msg, 'a', "s");
 	while ((ret = sd_bus_message_read_basic(msg, 's', &s)) > 0) {
-		if ((is_session && strcmp(s, "Active") == 0) ||
-		    (is_seat && strcmp(s, "CanGraphical"))) {
+		if (is_session && strcmp(s, "Active") == 0) {
 			sd_bus_error error = SD_BUS_ERROR_NULL;
-			const char *obj = is_session ? "org.freedesktop.login1.Session"
-						     : "org.freedesktop.login1.Seat";
-			const char *field = is_session ? "Active" : "CanGraphical";
+			const char *obj = "org.freedesktop.login1.Session";
+			const char *field = "Active";
 			bool value;
 			ret = sd_bus_get_property_trivial(session->bus, "org.freedesktop.login1",
 							  session->path, obj, field, &error, 'b',
@@ -443,11 +435,7 @@ static int properties_changed(sd_bus_message *msg, void *userdata, sd_bus_error 
 			}
 
 			log_debugf("%s state changed: %d", field, value);
-			if (is_session) {
-				set_active(session, value);
-			} else {
-				session->can_graphical = value;
-			}
+			set_active(session, value);
 			return 0;
 		}
 	}
@@ -648,14 +636,6 @@ static struct libseat *logind_open_seat(struct libseat_seat_listener *listener, 
 
 	if (!take_control(backend)) {
 		goto error;
-	}
-
-	backend->can_graphical = sd_seat_can_graphical(backend->seat);
-	while (!backend->can_graphical) {
-		if (poll_connection(backend, -1) == -1) {
-			log_errorf("Could not poll connection: %s", strerror(errno));
-			goto error;
-		}
 	}
 
 	const char *env = getenv("XDG_SESSION_TYPE");
