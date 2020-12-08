@@ -37,7 +37,7 @@ static int get_peer(int fd, pid_t *pid, uid_t *uid, gid_t *gid) {
 #elif defined(__FreeBSD__)
 	struct xucred cred;
 	socklen_t len = sizeof cred;
-	if (getsockopt(fd, SOL_SOCKET, LOCAL_PEERCRED, &cred, &len) == -1) {
+	if (getsockopt(fd, 0, LOCAL_PEERCRED, &cred, &len) == -1) {
 		return -1;
 	}
 	*pid = -1;
