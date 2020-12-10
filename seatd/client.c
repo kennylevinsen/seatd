@@ -41,7 +41,7 @@ static int get_peer(int fd, pid_t *pid, uid_t *uid, gid_t *gid) {
 		return -1;
 	}
 #if __FreeBSD_version >= 1300030
-	pid = cred.cr_pid;
+	*pid = cred.cr_pid;
 #else
 	*pid = -1;
 #endif
