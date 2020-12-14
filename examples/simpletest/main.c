@@ -57,8 +57,8 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	close(fd);
 	libseat_close_device(backend, device);
+	close(fd);
 	libseat_close_seat(backend);
 	return 0;
 }
