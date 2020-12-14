@@ -46,6 +46,7 @@ struct backend_logind {
 
 const struct seat_impl logind_impl;
 static struct backend_logind *backend_logind_from_libseat_backend(struct libseat *base);
+static void release_control(struct backend_logind *backend);
 
 static void destroy(struct backend_logind *backend) {
 	assert(backend);
@@ -61,6 +62,7 @@ static void destroy(struct backend_logind *backend) {
 
 static int close_seat(struct libseat *base) {
 	struct backend_logind *backend = backend_logind_from_libseat_backend(base);
+	release_control(backend);
 	destroy(backend);
 	return 0;
 }
@@ -278,6 +280,21 @@ static bool take_control(struct backend_logind *session) {
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(msg);
 	return ret >= 0;
+}
+
+static void release_control(struct backend_logind *session) {
+	sd_bus_message *msg = NULL;
+	sd_bus_error error = SD_BUS_ERROR_NULL;
+
+	int ret = sd_bus_call_method(session->bus, "org.freedesktop.login1", session->path,
+				     "org.freedesktop.login1.Session", "ReleaseControl", &error,
+				     &msg, "");
+	if (ret < 0) {
+		log_errorf("Could not release control of session: %s", error.message);
+	}
+
+	sd_bus_error_free(&error);
+	sd_bus_message_unref(msg);
 }
 
 static void set_active(struct backend_logind *backend, bool active) {
@@ -652,9 +669,7 @@ static struct libseat *logind_open_seat(struct libseat_seat_listener *listener, 
 	return &backend->base;
 
 error:
-	if (backend != NULL) {
-		destroy(backend);
-	}
+	destroy(backend);
 	return NULL;
 }
 
