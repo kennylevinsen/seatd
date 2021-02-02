@@ -302,9 +302,7 @@ done:
 	return device;
 }
 
-static int seat_deactivate_device(struct client *client, struct seat_device *seat_device) {
-	assert(client);
-	assert(client->seat);
+static int seat_deactivate_device(struct seat_device *seat_device) {
 	assert(seat_device && seat_device->fd > 0);
 
 	if (!seat_device->active) {
@@ -347,7 +345,7 @@ int seat_close_device(struct client *client, struct seat_device *seat_device) {
 
 	linked_list_remove(&seat_device->link);
 	if (seat_device->fd != -1) {
-		seat_deactivate_device(client, seat_device);
+		seat_deactivate_device(seat_device);
 		close(seat_device->fd);
 	}
 	free(seat_device->path);
@@ -512,7 +510,7 @@ static int seat_disable_client(struct client *client) {
 	for (struct linked_list *elem = client->devices.next; elem != &client->devices;
 	     elem = elem->next) {
 		struct seat_device *device = (struct seat_device *)elem;
-		if (seat_deactivate_device(client, device) == -1) {
+		if (seat_deactivate_device(device) == -1) {
 			log_errorf("unable to deactivate '%s': %s", device->path, strerror(errno));
 		}
 	}
