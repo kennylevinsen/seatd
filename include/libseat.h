@@ -137,7 +137,7 @@ int libseat_get_fd(struct libseat *seat);
  * milliseconds that might occur.
  *
  * Returns a positive number signifying processed internal messages on success.
- * Returns 0-if no messages were processed. Returns -1 and sets errno on error.
+ * Returns 0 if no messages were processed. Returns -1 and sets errno on error.
  */
 int libseat_dispatch(struct libseat *seat, int timeout);
 
