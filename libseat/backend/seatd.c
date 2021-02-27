@@ -585,7 +585,7 @@ static struct libseat *builtin_open_seat(struct libseat_seat_listener *listener,
 	}
 
 	if (geteuid() != 0) {
-		log_debug("Built-in seatd instance requires root privileges");
+		log_error("Built-in seatd instance requires root privileges");
 		return NULL;
 	}
 

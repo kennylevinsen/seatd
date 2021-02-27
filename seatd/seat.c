@@ -276,7 +276,7 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 	switch (type) {
 	case SEAT_DEVICE_TYPE_DRM:
 		if (drm_set_master(fd) == -1) {
-			log_debugf("drm_set_master failed: %s", strerror(errno));
+			log_errorf("could not make device fd drm master: %s", strerror(errno));
 		}
 		break;
 	case SEAT_DEVICE_TYPE_EVDEV:
@@ -326,13 +326,13 @@ static int seat_deactivate_device(struct seat_device *seat_device) {
 	switch (seat_device->type) {
 	case SEAT_DEVICE_TYPE_DRM:
 		if (drm_drop_master(seat_device->fd) == -1) {
-			log_debugf("drm_drop_master failed: %s", strerror(errno));
+			log_errorf("could not revoke drm master on device fd: %s", strerror(errno));
 			return -1;
 		}
 		break;
 	case SEAT_DEVICE_TYPE_EVDEV:
 		if (evdev_revoke(seat_device->fd) == -1) {
-			log_debugf("evdev_revoke failed: %s", strerror(errno));
+			log_errorf("could not revoke evdev on device fd: %s", strerror(errno));
 			return -1;
 		}
 		break;
@@ -379,7 +379,7 @@ static int seat_activate_device(struct client *client, struct seat_device *seat_
 	switch (seat_device->type) {
 	case SEAT_DEVICE_TYPE_DRM:
 		if (drm_set_master(seat_device->fd) == -1) {
-			log_debugf("drmset_master failed: %s", strerror(errno));
+			log_errorf("could not make device fd drm master: %s", strerror(errno));
 		}
 		seat_device->active = true;
 		break;
