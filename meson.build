@@ -212,7 +212,11 @@ test(
         )
 )
 
-scdoc = dependency('scdoc', required: get_option('man-pages'), version: '>= 1.9.7', native: true)
+if get_option('server').enabled()
+    scdoc = dependency('scdoc', required: get_option('man-pages'), version: '>= 1.9.7', native: true)
+else
+    scdoc = disabler()
+endif
 
 if scdoc.found()
 	sh = find_program('sh', native: true)
