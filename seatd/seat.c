@@ -19,6 +19,8 @@
 #include "terminal.h"
 
 static int seat_close_client(struct client *client);
+static void vt_close(struct seat *seat);
+
 
 struct seat *seat_create(const char *seat_name, bool vt_bound) {
 	struct seat *seat = calloc(1, sizeof(struct seat));
@@ -49,7 +51,7 @@ void seat_destroy(struct seat *seat) {
 		assert(client->seat == seat);
 		client_destroy(client);
 	}
-	assert(seat->cur_ttyfd == -1);
+	vt_close(seat);
 	linked_list_remove(&seat->link);
 	free(seat->seat_name);
 	free(seat);
