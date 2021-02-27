@@ -18,6 +18,8 @@
 #include "seat.h"
 #include "terminal.h"
 
+static int seat_close_client(struct client *client);
+
 struct seat *seat_create(const char *seat_name, bool vt_bound) {
 	struct seat *seat = calloc(1, sizeof(struct seat));
 	if (seat == NULL) {
@@ -77,17 +79,31 @@ static int vt_open(struct seat *seat, int vt) {
 	return 0;
 }
 
+static void vt_close_fd(int fd) {
+	terminal_set_process_switching(fd, true);
+	terminal_set_keyboard(fd, true);
+	terminal_set_graphics(fd, false);
+}
+
 static void vt_close(struct seat *seat) {
 	if (seat->cur_ttyfd == -1) {
 		return;
 	}
 
-	terminal_set_process_switching(seat->cur_ttyfd, true);
-	terminal_set_keyboard(seat->cur_ttyfd, true);
-	terminal_set_graphics(seat->cur_ttyfd, false);
-
+	vt_close_fd(seat->cur_ttyfd);
 	close(seat->cur_ttyfd);
 	seat->cur_ttyfd = -1;
+}
+
+static int vt_close_num(int vt) {
+	int ttyfd = terminal_open(vt);
+	if (ttyfd == -1) {
+		log_errorf("could not open terminal %s", strerror(errno));
+		return -1;
+	}
+	vt_close_fd(ttyfd);
+	close(ttyfd);
+	return 0;
 }
 
 static int vt_switch(struct seat *seat, int vt) {
@@ -168,9 +184,7 @@ int seat_remove_client(struct client *client) {
 		seat_close_device(client, device);
 	}
 
-	if (seat->active_client == client) {
-		seat_close_client(client);
-	}
+	seat_close_client(client);
 
 	client->seat = NULL;
 	log_debug("removed client");
@@ -458,17 +472,11 @@ error:
 	return -1;
 }
 
-int seat_close_client(struct client *client) {
+static int seat_close_client(struct client *client) {
 	assert(client);
 	assert(client->seat);
 
 	struct seat *seat = client->seat;
-
-	if (seat->active_client != client) {
-		log_error("client not active");
-		errno = EBUSY;
-		return -1;
-	}
 
 	while (!linked_list_empty(&client->devices)) {
 		struct seat_device *device = (struct seat_device *)client->devices.next;
@@ -477,14 +485,29 @@ int seat_close_client(struct client *client) {
 		}
 	}
 
+	bool was_current = seat->active_client == client;
+	if (was_current) {
+		seat->active_client = NULL;
+		seat_activate(seat);
+	}
+
+	if (seat->vt_bound) {
+		if (was_current && seat->active_client == NULL) {
+			// This client was current, but there were no clients
+			// waiting to take this VT, so clean it up.
+			log_debug("closing active VT");
+			vt_close(seat);
+		} else if (!was_current && client->state != CLIENT_CLOSED) {
+			// This client was not current, but as the client was
+			// running, we need to clean up the VT.
+			log_debug("closing inactive VT");
+			vt_close_num(client->session);
+		}
+	}
+
 	client->state = CLIENT_CLOSED;
-	seat->active_client = NULL;
 	log_debug("closed client");
 
-	seat_activate(seat);
-	if (seat->vt_bound && seat->active_client == NULL) {
-		vt_close(seat);
-	}
 	return 0;
 }
 
@@ -543,10 +566,10 @@ int seat_ack_disable_client(struct client *client) {
 
 	seat->active_client = NULL;
 	seat_activate(seat);
-	if (seat->vt_bound && seat->active_client == NULL) {
-		vt_close(seat);
-	}
 
+	// If we're VT-bound, we've either de-activated a client on a foreign
+	// VT, in which case we need to do nothing, or disabled the current VT,
+	// in which case seat_activate would just immediately re-enable it.
 	return 0;
 }
 

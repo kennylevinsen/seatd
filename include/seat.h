@@ -44,7 +44,6 @@ void seat_destroy(struct seat *seat);
 int seat_add_client(struct seat *seat, struct client *client);
 int seat_remove_client(struct client *client);
 int seat_open_client(struct seat *seat, struct client *client);
-int seat_close_client(struct client *client);
 int seat_ack_disable_client(struct client *client);
 
 struct seat_device *seat_open_device(struct client *client, const char *path);
