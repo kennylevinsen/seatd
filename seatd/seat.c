@@ -21,7 +21,6 @@
 static int seat_close_client(struct client *client);
 static void vt_close(struct seat *seat);
 
-
 struct seat *seat_create(const char *seat_name, bool vt_bound) {
 	struct seat *seat = calloc(1, sizeof(struct seat));
 	if (seat == NULL) {
@@ -316,8 +315,8 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 	linked_list_insert(&client->devices, &device->link);
 
 done:
-	log_debugf("seat: '%s', client: %d, path: '%s', device_id: %d, ref_cnt: %d", seat->seat_name,
-		   client->session, path, device_id, device->ref_cnt);
+	log_debugf("seat: '%s', client: %d, path: '%s', device_id: %d, ref_cnt: %d",
+		   seat->seat_name, client->session, path, device_id, device->ref_cnt);
 
 	return device;
 }
@@ -355,8 +354,8 @@ int seat_close_device(struct client *client, struct seat_device *seat_device) {
 	assert(seat_device && seat_device->fd != -1);
 
 	log_debugf("seat: '%s', client: %d, path: '%s', device_id: %d, ref_cnt: %d",
-		   client->seat->seat_name, client->session, seat_device->path, seat_device->device_id,
-		   seat_device->ref_cnt);
+		   client->seat->seat_name, client->session, seat_device->path,
+		   seat_device->device_id, seat_device->ref_cnt);
 
 	seat_device->ref_cnt--;
 	if (seat_device->ref_cnt > 0) {
@@ -444,14 +443,14 @@ int seat_open_client(struct seat *seat, struct client *client) {
 
 	if (client->state != CLIENT_NEW && client->state != CLIENT_DISABLED) {
 		log_errorf("could not enable client %d: client is not new or disabled",
-				client->session);
+			   client->session);
 		errno = EALREADY;
 		return -1;
 	}
 
 	if (seat->active_client != NULL) {
 		log_errorf("could not enable client %d: seat already has active client",
-				client->session);
+			   client->session);
 		errno = EBUSY;
 		return -1;
 	}
@@ -465,8 +464,8 @@ int seat_open_client(struct seat *seat, struct client *client) {
 	     elem = elem->next) {
 		struct seat_device *device = (struct seat_device *)elem;
 		if (seat_activate_device(client, device) == -1) {
-			log_errorf("unable to activate '%s' for client %d: %s",
-					device->path, client->session, strerror(errno));
+			log_errorf("unable to activate '%s' for client %d: %s", device->path,
+				   client->session, strerror(errno));
 		}
 	}
 
