@@ -152,7 +152,7 @@ static int close_device(struct libseat *base, int device_id) {
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(msg);
 
-	return ret >= 0;
+	return ret < 0 ? -1 : 0;
 }
 
 static int switch_session(struct libseat *base, int s) {
@@ -184,7 +184,13 @@ static int disable_seat(struct libseat *base) {
 
 static int get_fd(struct libseat *base) {
 	struct backend_logind *backend = backend_logind_from_libseat_backend(base);
-	return sd_bus_get_fd(backend->bus);
+	int fd = sd_bus_get_fd(backend->bus);
+	if (fd >= 0) {
+		return fd;
+	}
+
+	errno = -fd;
+	return -1;
 }
 
 static int poll_connection(struct backend_logind *backend, int timeout) {
