@@ -34,7 +34,11 @@ struct seat *seat_create(const char *seat_name, bool vt_bound) {
 		free(seat);
 		return NULL;
 	}
-	log_debugf("created seat '%s' (vt_bound: %d)", seat_name, vt_bound);
+	if (vt_bound) {
+		log_infof("created VT-bound seat '%s'", seat_name);
+	} else {
+		log_infof("created seat '%s'", seat_name);
+	}
 	return seat;
 }
 
@@ -144,7 +148,7 @@ int seat_add_client(struct seat *seat, struct client *client) {
 	}
 
 	if (seat->vt_bound && seat->active_client != NULL) {
-		log_error("cannot add client: seat is vt_bound and an active client already exists");
+		log_error("cannot add client: seat is VT-bound and an active client already exists");
 		errno = EBUSY;
 		return -1;
 	}
@@ -166,10 +170,9 @@ int seat_add_client(struct seat *seat, struct client *client) {
 	} else {
 		client->session = seat->session_cnt++;
 	}
-	log_debugf("registered client %p as session %d", (void *)client, client->session);
 
 	client->seat = seat;
-	log_debug("added client");
+	log_infof("added client %d", client->session);
 
 	return 0;
 }
@@ -191,7 +194,7 @@ int seat_remove_client(struct client *client) {
 	seat_close_client(client);
 
 	client->seat = NULL;
-	log_debug("removed client");
+	log_infof("removed client %d", client->session);
 
 	return 0;
 }
@@ -311,8 +314,8 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 	linked_list_insert(&client->devices, &device->link);
 
 done:
-	log_debugf("seat: %p, client: %p, path: '%s', device_id: %d, ref_cnt: %d", (void *)seat,
-		   (void *)client, path, device_id, device->ref_cnt);
+	log_debugf("seat: '%s', client: %d, path: '%s', device_id: %d, ref_cnt: %d", seat->seat_name,
+		   client->session, path, device_id, device->ref_cnt);
 
 	return device;
 }
@@ -349,8 +352,8 @@ int seat_close_device(struct client *client, struct seat_device *seat_device) {
 	assert(client->seat);
 	assert(seat_device && seat_device->fd != -1);
 
-	log_debugf("seat: %p, client: %p, path: '%s', device_id: %d, ref_cnt: %d",
-		   (void *)client->seat, (void *)client, seat_device->path, seat_device->device_id,
+	log_debugf("seat: '%s', client: %d, path: '%s', device_id: %d, ref_cnt: %d",
+		   client->seat->seat_name, client->session, seat_device->path, seat_device->device_id,
 		   seat_device->ref_cnt);
 
 	seat_device->ref_cnt--;
@@ -403,18 +406,20 @@ static int seat_activate(struct seat *seat) {
 
 	struct client *next_client = NULL;
 	if (seat->next_client != NULL) {
-		log_info("activating next queued client");
+		log_debug("activating next queued client");
 		next_client = seat->next_client;
 		seat->next_client = NULL;
 	} else if (linked_list_empty(&seat->clients)) {
 		log_info("no clients on seat to activate");
+		return -1;
+	} else if (seat->vt_bound && seat->cur_vt == -1) {
 		return -1;
 	} else if (seat->vt_bound) {
 		for (struct linked_list *elem = seat->clients.next; elem != &seat->clients;
 		     elem = elem->next) {
 			struct client *client = (struct client *)elem;
 			if (client->session == seat->cur_vt) {
-				log_infof("activating client belonging to VT %d", seat->cur_vt);
+				log_debugf("activating client belonging to VT %d", seat->cur_vt);
 				next_client = client;
 				goto done;
 			}
@@ -423,7 +428,7 @@ static int seat_activate(struct seat *seat) {
 		log_infof("no clients belonging to VT %d to activate", seat->cur_vt);
 		return -1;
 	} else {
-		log_info("activating first client on seat");
+		log_debug("activating first client on seat");
 		next_client = (struct client *)seat->clients.next;
 	}
 
@@ -436,18 +441,21 @@ int seat_open_client(struct seat *seat, struct client *client) {
 	assert(client);
 
 	if (client->state != CLIENT_NEW && client->state != CLIENT_DISABLED) {
-		log_error("client is not new or disabled");
+		log_errorf("could not enable client %d: client is not new or disabled",
+				client->session);
 		errno = EALREADY;
 		return -1;
 	}
 
 	if (seat->active_client != NULL) {
-		log_error("seat already has active client");
+		log_errorf("could not enable client %d: seat already has active client",
+				client->session);
 		errno = EBUSY;
 		return -1;
 	}
 
 	if (seat->vt_bound && vt_open(seat, client->session) == -1) {
+		log_errorf("could not open VT for client %d", client->session);
 		goto error;
 	}
 
@@ -455,18 +463,19 @@ int seat_open_client(struct seat *seat, struct client *client) {
 	     elem = elem->next) {
 		struct seat_device *device = (struct seat_device *)elem;
 		if (seat_activate_device(client, device) == -1) {
-			log_errorf("unable to activate '%s': %s", device->path, strerror(errno));
+			log_errorf("unable to activate '%s' for client %d: %s",
+					device->path, client->session, strerror(errno));
 		}
 	}
 
 	client->state = CLIENT_ACTIVE;
 	seat->active_client = client;
 	if (client_send_enable_seat(client) == -1) {
-		log_error("could not send enable signal");
+		log_errorf("could not send enable signal to client %d", client->session);
 		goto error;
 	}
 
-	log_info("client successfully enabled");
+	log_infof("enabled client %d", client->session);
 	return 0;
 
 error:
@@ -510,7 +519,7 @@ static int seat_close_client(struct client *client) {
 	}
 
 	client->state = CLIENT_CLOSED;
-	log_debug("closed client");
+	log_infof("closed client %d", client->session);
 
 	return 0;
 }
@@ -546,7 +555,7 @@ static int seat_disable_client(struct client *client) {
 		return -1;
 	}
 
-	log_debug("disabling client");
+	log_infof("disabling client %d", client->session);
 	return 0;
 }
 
@@ -562,7 +571,7 @@ int seat_ack_disable_client(struct client *client) {
 	}
 
 	client->state = CLIENT_DISABLED;
-	log_debug("disabled client");
+	log_infof("disabled client %d", client->session);
 
 	if (seat->active_client != client) {
 		return 0;
@@ -607,7 +616,7 @@ int seat_set_next_session(struct client *client, int session) {
 	}
 
 	if (seat->vt_bound) {
-		log_infof("switching to VT %d from %d", session, seat->cur_vt);
+		log_infof("switching to VT %d from VT %d", session, seat->cur_vt);
 		if (vt_switch(seat, session) == -1) {
 			log_error("could not switch VT");
 			return -1;
