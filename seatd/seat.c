@@ -200,15 +200,12 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 	assert(strlen(path) > 0);
 	struct seat *seat = client->seat;
 
-	if (client != seat->active_client) {
+	if (client->state != CLIENT_ACTIVE) {
+		log_error("client is not active");
 		errno = EPERM;
 		return NULL;
 	}
-
-	if (client->pending_disable) {
-		errno = EPERM;
-		return NULL;
-	}
+	assert(seat->active_client == client);
 
 	char sanitized_path[PATH_MAX];
 	if (realpath(path, sanitized_path) == NULL) {
@@ -419,10 +416,15 @@ done:
 int seat_open_client(struct seat *seat, struct client *client) {
 	assert(seat);
 	assert(client);
-	assert(!client->pending_disable);
+
+	if (client->state != CLIENT_NEW && client->state != CLIENT_DISABLED) {
+		log_error("client is not new or disabled");
+		errno = EALREADY;
+		return -1;
+	}
 
 	if (seat->active_client != NULL) {
-		log_error("client already active");
+		log_error("seat already has active client");
 		errno = EBUSY;
 		return -1;
 	}
@@ -439,6 +441,7 @@ int seat_open_client(struct seat *seat, struct client *client) {
 		}
 	}
 
+	client->state = CLIENT_ACTIVE;
 	seat->active_client = client;
 	if (client_send_enable_seat(client) == -1) {
 		log_error("could not send enable signal");
@@ -474,7 +477,7 @@ int seat_close_client(struct client *client) {
 		}
 	}
 
-	client->pending_disable = false;
+	client->state = CLIENT_CLOSED;
 	seat->active_client = NULL;
 	log_debug("closed client");
 
@@ -491,17 +494,12 @@ static int seat_disable_client(struct client *client) {
 
 	struct seat *seat = client->seat;
 
-	if (seat->active_client != client) {
+	if (client->state != CLIENT_ACTIVE) {
 		log_error("client not active");
 		errno = EBUSY;
 		return -1;
 	}
-
-	if (client->pending_disable) {
-		log_error("client already pending disable");
-		errno = EBUSY;
-		return -1;
-	}
+	assert(seat->active_client = client);
 
 	// We *deactivate* all remaining fds. These may later be reactivated.
 	// The reason we cannot just close them is that certain device fds, such
@@ -515,7 +513,7 @@ static int seat_disable_client(struct client *client) {
 		}
 	}
 
-	client->pending_disable = true;
+	client->state = CLIENT_PENDING_DISABLE;
 	if (client_send_disable_seat(seat->active_client) == -1) {
 		log_error("could not send disable event");
 		return -1;
@@ -530,13 +528,13 @@ int seat_ack_disable_client(struct client *client) {
 	assert(client->seat);
 
 	struct seat *seat = client->seat;
-	if (!client->pending_disable) {
+	if (client->state != CLIENT_PENDING_DISABLE) {
 		log_error("client not pending disable");
 		errno = EBUSY;
 		return -1;
 	}
 
-	client->pending_disable = false;
+	client->state = CLIENT_DISABLED;
 	log_debug("disabled client");
 
 	if (seat->active_client != client) {
@@ -558,11 +556,12 @@ int seat_set_next_session(struct client *client, int session) {
 
 	struct seat *seat = client->seat;
 
-	if (seat->active_client != client || client->pending_disable) {
-		log_error("client not active or pending disable");
+	if (client->state != CLIENT_ACTIVE) {
+		log_error("client is not active");
 		errno = EPERM;
 		return -1;
 	}
+	assert(seat->active_client == client);
 
 	if (session <= 0) {
 		log_errorf("invalid session value: %d", session);

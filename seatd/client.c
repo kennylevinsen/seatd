@@ -73,6 +73,7 @@ struct client *client_create(struct server *server, int client_fd) {
 	client->session = -1;
 	client->server = server;
 	client->connection.fd = client_fd;
+	client->state = CLIENT_NEW;
 	linked_list_init(&client->devices);
 	linked_list_insert(&server->idle_clients, &client->link);
 	return client;

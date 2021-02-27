@@ -10,6 +10,14 @@
 
 struct server;
 
+enum client_state {
+	CLIENT_NEW,
+	CLIENT_ACTIVE,
+	CLIENT_PENDING_DISABLE,
+	CLIENT_DISABLED,
+	CLIENT_CLOSED
+};
+
 struct client {
 	struct linked_list link; // seat::clients
 	struct server *server;
@@ -22,7 +30,7 @@ struct client {
 
 	struct seat *seat;
 	int session;
-	bool pending_disable;
+	enum client_state state;
 
 	struct linked_list devices;
 };
