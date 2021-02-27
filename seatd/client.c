@@ -145,11 +145,11 @@ static int handle_open_seat(struct client *client) {
 		return -1;
 	}
 
-	linked_list_remove(&client->link);
 	if (seat_add_client(seat, client) == -1) {
 		log_errorf("unable to add client to target seat: %s", strerror(errno));
 		return -1;
 	}
+	linked_list_remove(&client->link);
 	linked_list_insert(&seat->clients, &client->link);
 
 	size_t seat_name_len = strlen(seat_name);
