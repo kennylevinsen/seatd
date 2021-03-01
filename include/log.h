@@ -17,27 +17,21 @@
 #define __FILENAME__ __FILE__
 #endif
 
-#define log_infof(fmt, ...)                                                                 \
-	_logf(LIBSEAT_LOG_LEVEL_INFO, "[%s:%d] %s: " fmt, __FILENAME__, __LINE__, __func__, \
-	      __VA_ARGS__)
+#define log_infof(fmt, ...) \
+	_logf(LIBSEAT_LOG_LEVEL_INFO, "[%s:%d] " fmt, __FILENAME__, __LINE__, __VA_ARGS__)
 
-#define log_info(str) \
-	_logf(LIBSEAT_LOG_LEVEL_INFO, "[%s:%d] %s: %s", __FILENAME__, __LINE__, __func__, str)
+#define log_info(str) _logf(LIBSEAT_LOG_LEVEL_INFO, "[%s:%d] %s", __FILENAME__, __LINE__, str)
 
-#define log_errorf(fmt, ...)                                                                 \
-	_logf(LIBSEAT_LOG_LEVEL_ERROR, "[%s:%d] %s: " fmt, __FILENAME__, __LINE__, __func__, \
-	      __VA_ARGS__)
+#define log_errorf(fmt, ...) \
+	_logf(LIBSEAT_LOG_LEVEL_ERROR, "[%s:%d] " fmt, __FILENAME__, __LINE__, __VA_ARGS__)
 
-#define log_error(str) \
-	_logf(LIBSEAT_LOG_LEVEL_ERROR, "[%s:%d] %s: %s", __FILENAME__, __LINE__, __func__, str)
+#define log_error(str) _logf(LIBSEAT_LOG_LEVEL_ERROR, "[%s:%d] %s", __FILENAME__, __LINE__, str)
 
 #ifdef DEBUG
-#define log_debugf(fmt, ...)                                                                 \
-	_logf(LIBSEAT_LOG_LEVEL_DEBUG, "[%s:%d] %s: " fmt, __FILENAME__, __LINE__, __func__, \
-	      __VA_ARGS__)
+#define log_debugf(fmt, ...) \
+	_logf(LIBSEAT_LOG_LEVEL_DEBUG, "[%s:%d] " fmt, __FILENAME__, __LINE__, __VA_ARGS__)
 
-#define log_debug(str) \
-	_logf(LIBSEAT_LOG_LEVEL_DEBUG, "[%s:%d] %s: %s", __FILENAME__, __LINE__, __func__, str)
+#define log_debug(str) _logf(LIBSEAT_LOG_LEVEL_DEBUG, "[%s:%d] %s", __FILENAME__, __LINE__, str)
 #else
 #define log_debugf(fmt, ...)
 #define log_debug(str)
