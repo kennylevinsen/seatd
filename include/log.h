@@ -27,15 +27,10 @@
 
 #define log_error(str) _logf(LIBSEAT_LOG_LEVEL_ERROR, "[%s:%d] %s", __FILENAME__, __LINE__, str)
 
-#ifdef DEBUG
 #define log_debugf(fmt, ...) \
 	_logf(LIBSEAT_LOG_LEVEL_DEBUG, "[%s:%d] " fmt, __FILENAME__, __LINE__, __VA_ARGS__)
 
 #define log_debug(str) _logf(LIBSEAT_LOG_LEVEL_DEBUG, "[%s:%d] %s", __FILENAME__, __LINE__, str)
-#else
-#define log_debugf(fmt, ...)
-#define log_debug(str)
-#endif
 
 void log_init(void);
 void _logf(enum libseat_log_level level, const char *fmt, ...) ATTRIB_PRINTF(2, 3);
