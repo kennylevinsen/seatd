@@ -111,11 +111,11 @@ static int server_handle_kill(int signal, void *data) {
 static int set_nonblock(int fd) {
 	int flags;
 	if ((flags = fcntl(fd, F_GETFD)) == -1 || fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == -1) {
-		log_errorf("could not set FD_CLOEXEC on socket: %s", strerror(errno));
+		log_errorf("Could not set FD_CLOEXEC on socket: %s", strerror(errno));
 		return -1;
 	}
 	if ((flags = fcntl(fd, F_GETFL)) == -1 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-		log_errorf("could not set O_NONBLOCK on socket: %s", strerror(errno));
+		log_errorf("Could not set O_NONBLOCK on socket: %s", strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -124,7 +124,7 @@ static int set_nonblock(int fd) {
 int server_add_client(struct server *server, int fd) {
 	if (set_nonblock(fd) != 0) {
 		close(fd);
-		log_errorf("could not prepare new client socket: %s", strerror(errno));
+		log_errorf("Could not prepare new client socket: %s", strerror(errno));
 		return -1;
 	}
 
@@ -132,11 +132,11 @@ int server_add_client(struct server *server, int fd) {
 	client->event_source =
 		poller_add_fd(&server->poller, fd, EVENT_READABLE, client_handle_connection, client);
 	if (client->event_source == NULL) {
-		log_errorf("could not add client socket to poller: %s", strerror(errno));
+		log_errorf("Could not add client socket to poller: %s", strerror(errno));
 		client_destroy(client);
 		return -1;
 	}
-	log_infof("new client connected (pid: %d, uid: %d, gid: %d)", client->pid, client->uid,
+	log_infof("New client connected (pid: %d, uid: %d, gid: %d)", client->pid, client->uid,
 		  client->gid);
 	return 0;
 }
@@ -146,14 +146,14 @@ int server_handle_connection(int fd, uint32_t mask, void *data) {
 	if (mask & (EVENT_ERROR | EVENT_HANGUP)) {
 		shutdown(fd, SHUT_RDWR);
 		server->running = false;
-		log_errorf("server socket recieved an error: %s", strerror(errno));
+		log_errorf("Server socket recieved an error: %s", strerror(errno));
 		return -1;
 	}
 
 	if (mask & EVENT_READABLE) {
 		int new_fd = accept(fd, NULL, NULL);
 		if (fd == -1) {
-			log_errorf("could not accept client connection: %s", strerror(errno));
+			log_errorf("Could not accept client connection: %s", strerror(errno));
 			return 0;
 		}
 

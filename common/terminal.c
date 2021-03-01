@@ -141,12 +141,12 @@ static int get_tty_path(int tty, char path[static TTYPATHLEN]) {
 int terminal_open(int vt) {
 	char path[TTYPATHLEN];
 	if (get_tty_path(vt, path) == -1) {
-		log_errorf("could not generate tty path: %s", strerror(errno));
+		log_errorf("Could not generate tty path: %s", strerror(errno));
 		return -1;
 	}
 	int fd = open(path, O_RDWR | O_NOCTTY);
 	if (fd == -1) {
-		log_errorf("could not open target tty: %s", strerror(errno));
+		log_errorf("Could not open target tty: %s", strerror(errno));
 		return -1;
 	}
 	return fd;
@@ -158,7 +158,7 @@ int terminal_current_vt(int fd) {
 	int res = ioctl(fd, VT_GETSTATE, &st);
 	close(fd);
 	if (res == -1) {
-		log_errorf("could not retrieve VT state: %s", strerror(errno));
+		log_errorf("Could not retrieve VT state: %s", strerror(errno));
 		return -1;
 	}
 	return st.v_active;
@@ -167,12 +167,12 @@ int terminal_current_vt(int fd) {
 	int res = ioctl(fd, VT_GETACTIVE, &vt);
 	close(fd);
 	if (res == -1) {
-		log_errorf("could not retrieve VT state: %s", strerror(errno));
+		log_errorf("Could not retrieve VT state: %s", strerror(errno));
 		return -1;
 	}
 
 	if (vt == -1) {
-		log_errorf("invalid vt: %d", vt);
+		log_errorf("Invalid VT: %d", vt);
 		return -1;
 	}
 	return vt;
@@ -182,7 +182,7 @@ int terminal_current_vt(int fd) {
 }
 
 int terminal_set_process_switching(int fd, bool enable) {
-	log_debugf("setting process switching to %d", enable);
+	log_debugf("Setting process switching to %d", enable);
 	struct vt_mode mode = {
 		.mode = enable ? VT_PROCESS : VT_AUTO,
 		.waitv = 0,
@@ -192,7 +192,7 @@ int terminal_set_process_switching(int fd, bool enable) {
 	};
 
 	if (ioctl(fd, VT_SETMODE, &mode) == -1) {
-		log_errorf("could not set VT mode to %s process switching: %s",
+		log_errorf("Could not set VT mode to %s process switching: %s",
 			   enable ? "enable" : "disable", strerror(errno));
 		return -1;
 	}
@@ -200,9 +200,9 @@ int terminal_set_process_switching(int fd, bool enable) {
 }
 
 int terminal_switch_vt(int fd, int vt) {
-	log_debugf("switching to VT %d", vt);
+	log_debugf("Switching to VT %d", vt);
 	if (ioctl(fd, VT_ACTIVATE, vt) == -1) {
-		log_errorf("could not activate VT %d: %s", vt, strerror(errno));
+		log_errorf("Could not activate VT %d: %s", vt, strerror(errno));
 		return -1;
 	}
 
@@ -210,9 +210,9 @@ int terminal_switch_vt(int fd, int vt) {
 }
 
 int terminal_ack_release(int fd) {
-	log_debug("acking VT release");
+	log_debug("Acking VT release");
 	if (ioctl(fd, VT_RELDISP, 1) == -1) {
-		log_errorf("could not ack VT release: %s", strerror(errno));
+		log_errorf("Could not ack VT release: %s", strerror(errno));
 		return -1;
 	}
 
@@ -220,9 +220,9 @@ int terminal_ack_release(int fd) {
 }
 
 int terminal_ack_acquire(int fd) {
-	log_debug("acking VT acquire");
+	log_debug("Acking VT acquire");
 	if (ioctl(fd, VT_RELDISP, VT_ACKACQ) == -1) {
-		log_errorf("could not ack VT acquire: %s", strerror(errno));
+		log_errorf("Could not ack VT acquire: %s", strerror(errno));
 		return -1;
 	}
 
@@ -230,16 +230,16 @@ int terminal_ack_acquire(int fd) {
 }
 
 int terminal_set_keyboard(int fd, bool enable) {
-	log_debugf("setting KD keyboard state to %d", enable);
+	log_debugf("Setting KD keyboard state to %d", enable);
 	if (ioctl(fd, KDSKBMODE, enable ? K_ENABLE : K_DISABLE) == -1) {
-		log_errorf("could not set KD keyboard mode to %s: %s",
+		log_errorf("Could not set KD keyboard mode to %s: %s",
 			   enable ? "enabled" : "disabled", strerror(errno));
 		return -1;
 	}
 #if defined(__FreeBSD__)
 	struct termios tios;
 	if (tcgetattr(fd, &tios) == -1) {
-		log_errorf("could not set get terminal mode: %s", strerror(errno));
+		log_errorf("Could not set get terminal mode: %s", strerror(errno));
 		return -1;
 	}
 	if (enable) {
@@ -248,7 +248,7 @@ int terminal_set_keyboard(int fd, bool enable) {
 		cfmakeraw(&tios);
 	}
 	if (tcsetattr(fd, TCSAFLUSH, &tios) == -1) {
-		log_errorf("could not set terminal mode to %s: %s", enable ? "sane" : "raw",
+		log_errorf("Could not set terminal mode to %s: %s", enable ? "sane" : "raw",
 			   strerror(errno));
 		return -1;
 	}
@@ -257,9 +257,9 @@ int terminal_set_keyboard(int fd, bool enable) {
 }
 
 int terminal_set_graphics(int fd, bool enable) {
-	log_debugf("setting KD graphics state to %d", enable);
+	log_debugf("Setting KD graphics state to %d", enable);
 	if (ioctl(fd, KDSETMODE, enable ? KD_GRAPHICS : KD_TEXT) == -1) {
-		log_errorf("could not set KD graphics mode to %s: %s", enable ? "graphics" : "text",
+		log_errorf("Could not set KD graphics mode to %s: %s", enable ? "graphics" : "text",
 			   strerror(errno));
 		return -1;
 	}

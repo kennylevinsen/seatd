@@ -120,7 +120,7 @@ static int client_send_error(struct client *client, int error_code) {
 
 	if (connection_put(&client->connection, &errheader, sizeof errheader) == -1 ||
 	    connection_put(&client->connection, &errmsg, sizeof errmsg) == -1) {
-		log_error("could not send error to client");
+		log_errorf("Could not send error to client: %s", strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -135,18 +135,18 @@ static char *client_get_seat_name(struct client *client) {
 static int handle_open_seat(struct client *client) {
 	char *seat_name = client_get_seat_name(client);
 	if (seat_name == NULL) {
-		log_error("could not get name of target seat");
+		log_error("Could not get name of target seat");
 		return -1;
 	}
 
 	struct seat *seat = server_get_seat(client->server, seat_name);
 	if (seat == NULL) {
-		log_error("unable to find seat by name");
+		log_errorf("Could not find seat named %s", seat_name);
 		return -1;
 	}
 
 	if (seat_add_client(seat, client) == -1) {
-		log_errorf("unable to add client to target seat: %s", strerror(errno));
+		log_errorf("Could not add client to target seat: %s", strerror(errno));
 		return -1;
 	}
 	linked_list_remove(&client->link);
@@ -165,7 +165,7 @@ static int handle_open_seat(struct client *client) {
 	if (connection_put(&client->connection, &header, sizeof header) == -1 ||
 	    connection_put(&client->connection, &rmsg, sizeof rmsg) == -1 ||
 	    connection_put(&client->connection, seat_name, seat_name_len) == -1) {
-		log_errorf("unable to write response: %s", strerror(errno));
+		log_errorf("Could not write response: %s", strerror(errno));
 		return -1;
 	}
 
@@ -175,13 +175,13 @@ static int handle_open_seat(struct client *client) {
 
 static int handle_close_seat(struct client *client) {
 	if (client->seat == NULL) {
-		log_error("protocol error: no seat associated with client");
+		log_error("Protocol error: no seat associated with client");
 		return -1;
 	}
 
 	linked_list_remove(&client->link);
 	if (seat_remove_client(client) == -1) {
-		log_error("unable to remove client from seat");
+		log_error("Could not remove client from seat");
 		return -1;
 	}
 	linked_list_insert(&client->server->idle_clients, &client->link);
@@ -192,7 +192,7 @@ static int handle_close_seat(struct client *client) {
 	};
 
 	if (connection_put(&client->connection, &header, sizeof header) == -1) {
-		log_errorf("unable to write response: %s", strerror(errno));
+		log_errorf("Could not write response: %s", strerror(errno));
 		return -1;
 	}
 
@@ -201,25 +201,25 @@ static int handle_close_seat(struct client *client) {
 
 static int handle_open_device(struct client *client, char *path) {
 	if (client->seat == NULL) {
-		log_error("protocol error: no seat associated with client");
+		log_error("Protocol error: no seat associated with client");
 		return -1;
 	}
 
 	struct seat_device *device = seat_open_device(client, path);
 	if (device == NULL) {
-		log_errorf("could not open device: %s", strerror(errno));
+		log_errorf("Could not open device: %s", strerror(errno));
 		goto fail;
 	}
 
 	int dupfd = dup(device->fd);
 	if (dupfd == -1) {
-		log_errorf("could not dup fd: %s", strerror(errno));
+		log_errorf("Could not dup fd: %s", strerror(errno));
 		seat_close_device(client, device);
 		goto fail;
 	}
 
 	if (connection_put_fd(&client->connection, dupfd) == -1) {
-		log_errorf("unable to queue fd for sending: %s", strerror(errno));
+		log_errorf("Could not queue fd for sending: %s", strerror(errno));
 		return -1;
 	}
 
@@ -233,7 +233,7 @@ static int handle_open_device(struct client *client, char *path) {
 
 	if (connection_put(&client->connection, &header, sizeof header) == -1 ||
 	    connection_put(&client->connection, &msg, sizeof msg) == -1) {
-		log_errorf("unable to write response: %s", strerror(errno));
+		log_errorf("Could not write response: %s", strerror(errno));
 		return -1;
 	}
 
@@ -245,19 +245,19 @@ fail:
 
 static int handle_close_device(struct client *client, int device_id) {
 	if (client->seat == NULL) {
-		log_error("protocol error: no seat associated with client");
+		log_error("Protocol error: no seat associated with client");
 		return -1;
 	}
 
 	struct seat_device *device = seat_find_device(client, device_id);
 	if (device == NULL) {
-		log_error("no such device");
+		log_error("No such device");
 		errno = EBADF;
 		goto fail;
 	}
 
 	if (seat_close_device(client, device) == -1) {
-		log_errorf("could not close device: %s", strerror(errno));
+		log_errorf("Could not close device: %s", strerror(errno));
 		goto fail;
 	}
 
@@ -267,7 +267,7 @@ static int handle_close_device(struct client *client, int device_id) {
 	};
 
 	if (connection_put(&client->connection, &header, sizeof header) == -1) {
-		log_errorf("unable to write response: %s", strerror(errno));
+		log_errorf("Could not write response: %s", strerror(errno));
 		return -1;
 	}
 
@@ -279,7 +279,7 @@ fail:
 
 static int handle_switch_session(struct client *client, int session) {
 	if (client->seat == NULL) {
-		log_error("protocol error: no seat associated with client");
+		log_error("Protocol error: no seat associated with client");
 		return -1;
 	}
 
@@ -295,7 +295,7 @@ error:
 
 static int handle_disable_seat(struct client *client) {
 	if (client->seat == NULL) {
-		log_error("protocol error: no seat associated with client");
+		log_error("Protocol error: no seat associated with client");
 		return -1;
 	}
 
@@ -314,7 +314,7 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 	switch (opcode) {
 	case CLIENT_OPEN_SEAT: {
 		if (size != 0) {
-			log_error("protocol error: invalid open_seat message");
+			log_error("Protocol error: invalid open_seat message");
 			return -1;
 		}
 		res = handle_open_seat(client);
@@ -322,7 +322,7 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 	}
 	case CLIENT_CLOSE_SEAT: {
 		if (size != 0) {
-			log_error("protocol error: invalid close_seat message");
+			log_error("Protocol error: invalid close_seat message");
 			return -1;
 		}
 		res = handle_close_seat(client);
@@ -333,11 +333,11 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 		struct proto_client_open_device msg;
 		if (sizeof msg > size || connection_get(&client->connection, &msg, sizeof msg) == -1 ||
 		    sizeof msg + msg.path_len > size || msg.path_len > MAX_PATH_LEN) {
-			log_error("protocol error: invalid open_device message");
+			log_error("Protocol error: invalid open_device message");
 			return -1;
 		}
 		if (connection_get(&client->connection, path, msg.path_len) == -1) {
-			log_error("protocol error: invalid open_device message");
+			log_error("Protocol error: invalid open_device message");
 			return -1;
 		}
 
@@ -347,7 +347,7 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 	case CLIENT_CLOSE_DEVICE: {
 		struct proto_client_close_device msg;
 		if (sizeof msg > size || connection_get(&client->connection, &msg, sizeof msg) == -1) {
-			log_error("protocol error: invalid close_device message");
+			log_error("Protocol error: invalid close_device message");
 			return -1;
 		}
 
@@ -357,7 +357,7 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 	case CLIENT_SWITCH_SESSION: {
 		struct proto_client_switch_session msg;
 		if (sizeof msg > size || connection_get(&client->connection, &msg, sizeof msg) == -1) {
-			log_error("protocol error: invalid switch_session message");
+			log_error("Protocol error: invalid switch_session message");
 			return -1;
 		}
 
@@ -366,14 +366,14 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 	}
 	case CLIENT_DISABLE_SEAT: {
 		if (size != 0) {
-			log_error("protocol error: invalid disable_seat message");
+			log_error("Protocol error: invalid disable_seat message");
 			return -1;
 		}
 		res = handle_disable_seat(client);
 		break;
 	}
 	default:
-		log_errorf("protocol error: unknown opcode: %d", opcode);
+		log_errorf("Protocol error: unknown opcode: %d", opcode);
 		res = -1;
 		break;
 	}
@@ -390,7 +390,7 @@ int client_send_disable_seat(struct client *client) {
 	};
 	if (connection_put(&client->connection, &header, sizeof header) == -1 ||
 	    connection_flush(&client->connection) == -1) {
-		log_error("unable to send event");
+		log_errorf("Could not send event: %s", strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -403,7 +403,7 @@ int client_send_enable_seat(struct client *client) {
 	};
 	if (connection_put(&client->connection, &header, sizeof header) == -1 ||
 	    connection_flush(&client->connection) == -1) {
-		log_error("unable to send event");
+		log_errorf("Could not send event: %s", strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -414,18 +414,18 @@ int client_handle_connection(int fd, uint32_t mask, void *data) {
 
 	struct client *client = data;
 	if (mask & EVENT_ERROR) {
-		log_error("connection error");
+		log_error("Connection error");
 		goto fail;
 	}
 	if (mask & EVENT_HANGUP) {
-		log_info("client disconnected");
+		log_info("Client disconnected");
 		goto fail;
 	}
 
 	if (mask & EVENT_WRITABLE) {
 		int len = connection_flush(&client->connection);
 		if (len == -1 && errno != EAGAIN) {
-			log_error("could not flush client connection");
+			log_errorf("Could not flush client connection: %s", strerror(errno));
 			goto fail;
 		} else if (len >= 0) {
 			event_source_fd_update(client->event_source, EVENT_READABLE);
@@ -434,8 +434,12 @@ int client_handle_connection(int fd, uint32_t mask, void *data) {
 
 	if (mask & EVENT_READABLE) {
 		int len = connection_read(&client->connection);
-		if (len == 0 || (len == -1 && errno != EAGAIN)) {
-			log_error("could not read client connection");
+		if (len == -1 && errno != EAGAIN) {
+			log_errorf("Could not read client connection: %s", strerror(errno));
+			goto fail;
+		}
+		if (len == 0) {
+			log_error("Could not read client connection: zero-length read");
 			goto fail;
 		}
 

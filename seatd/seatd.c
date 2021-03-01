@@ -24,7 +24,7 @@ static int open_socket(const char *path, int uid, int gid) {
 	} addr = {{0}};
 	int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 	if (fd == -1) {
-		log_errorf("could not create socket: %s", strerror(errno));
+		log_errorf("Could not create socket: %s", strerror(errno));
 		return -1;
 	}
 
@@ -32,21 +32,21 @@ static int open_socket(const char *path, int uid, int gid) {
 	strncpy(addr.unix.sun_path, path, sizeof addr.unix.sun_path - 1);
 	socklen_t size = offsetof(struct sockaddr_un, sun_path) + strlen(addr.unix.sun_path);
 	if (bind(fd, &addr.generic, size) == -1) {
-		log_errorf("could not bind socket: %s", strerror(errno));
+		log_errorf("Could not bind socket: %s", strerror(errno));
 		close(fd);
 		return -1;
 	}
 	if (listen(fd, LISTEN_BACKLOG) == -1) {
-		log_errorf("could not listen on socket: %s", strerror(errno));
+		log_errorf("Could not listen on socket: %s", strerror(errno));
 		close(fd);
 		return -1;
 	}
 	if (uid != 0 || gid != 0) {
 		if (chown(path, uid, gid) == -1) {
-			log_errorf("could not chown socket to uid %d, gid %d: %s", uid, gid,
+			log_errorf("Could not chown socket to uid %d, gid %d: %s", uid, gid,
 				   strerror(errno));
 		} else if (chmod(path, 0770) == -1) {
-			log_errorf("could not chmod socket: %s", strerror(errno));
+			log_errorf("Could not chmod socket: %s", strerror(errno));
 		}
 	}
 	return fd;
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
 		socket_path = SEATD_DEFAULTPATH;
 		struct stat st;
 		if (stat(socket_path, &st) == 0) {
-			log_info("removing leftover seatd socket");
+			log_info("Removing leftover seatd socket");
 			unlink(socket_path);
 		}
 	}
@@ -135,13 +135,13 @@ int main(int argc, char *argv[]) {
 
 	int socket_fd = open_socket(socket_path, uid, gid);
 	if (socket_fd == -1) {
-		log_errorf("could not create server socket: %s", strerror(errno));
+		log_errorf("Could not create server socket: %s", strerror(errno));
 		server_finish(&server);
 		return 1;
 	}
 	if (poller_add_fd(&server.poller, socket_fd, EVENT_READABLE, server_handle_connection,
 			  &server) == NULL) {
-		log_errorf("could not add socket to poller: %s", strerror(errno));
+		log_errorf("Could not add socket to poller: %s", strerror(errno));
 		close(socket_fd);
 		server_finish(&server);
 		return 1;
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
 
 	while (server.running) {
 		if (poller_poll(&server.poller) == -1) {
-			log_errorf("poller failed: %s", strerror(errno));
+			log_errorf("Poller failed: %s", strerror(errno));
 			return 1;
 		}
 	}
