@@ -186,31 +186,18 @@ if get_option('examples').enabled()
 	)
 endif
 
-test(
-        'linked_list',
-        executable(
-                'linked_list_test',
-                ['common/linked_list.c', 'tests/linked_list.c'],
-                include_directories: [include_directories('.', 'include')],
-        )
-)
-test(
-        'poller',
-        executable(
-                'poller_test',
-                ['common/linked_list.c', 'seatd/poller.c', 'tests/poller.c'],
-                include_directories: [include_directories('.', 'include')],
-        )
-)
+tests = {
+        'linked_list': ['common/linked_list.c'],
+        'connection': ['common/connection.c'],
+        'poller': ['common/linked_list.c', 'seatd/poller.c'],
+}
 
-test(
-        'connection',
-        executable(
-                'connection_test',
-                ['common/connection.c', 'tests/connection.c'],
-                include_directories: [include_directories('.', 'include')],
-        )
-)
+foreach name, value : tests
+        test(name, executable(
+	   '@0@_test'.format(name),
+	   ['tests/@0@.c'.format(name), value],
+	   include_directories: [include_directories('.', 'include')]))
+endforeach
 
 if get_option('server').enabled()
     scdoc = dependency('scdoc', required: get_option('man-pages'), version: '>= 1.9.7', native: true)
