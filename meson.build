@@ -1,7 +1,7 @@
 project(
 	'seatd',
 	'c',
-	version: '0.4.0',
+	version: '0.5.0',
 	license: 'MIT',
 	meson_version: '>=0.53.0',
 	default_options: [
