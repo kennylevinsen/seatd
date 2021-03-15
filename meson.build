@@ -232,8 +232,8 @@ if scdoc.found()
 endif
 
 summary({
-   'seatd': get_option('seatd').enabled() ? 1 : 0,
-   'builtin': get_option('builtin').enabled() ? 1 : 0,
-   'systemd': logind_provider == 'systemd' ? 1 : 0,
-   'elogind': logind_provider == 'elogind' ? 1 : 0,
-})
+   'seatd': get_option('seatd').enabled(),
+   'builtin': get_option('builtin').enabled(),
+   'systemd': logind_provider == 'systemd',
+   'elogind': logind_provider == 'elogind',
+}, bool_yn: true)
