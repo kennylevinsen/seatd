@@ -3,6 +3,7 @@ packages:
    - meson
    - linux-headers
    - clang
+   - clang-extra-tools
    - clang-analyzer
    - scdoc
 sources:
