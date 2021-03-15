@@ -48,7 +48,7 @@ add_project_arguments(
 )
 
 if ['debugoptimized', 'release', 'minsize'].contains(get_option('buildtype'))
-   add_project_arguments('-D_FORTIFY_SOURCE=2', language: 'c')
+	add_project_arguments('-D_FORTIFY_SOURCE=2', language: 'c')
 endif
 
 # Hacks
@@ -187,22 +187,22 @@ if get_option('examples').enabled()
 endif
 
 tests = {
-        'linked_list': ['common/linked_list.c'],
-        'connection': ['common/connection.c'],
-        'poller': ['common/linked_list.c', 'seatd/poller.c'],
+	'linked_list': ['common/linked_list.c'],
+	'connection': ['common/connection.c'],
+	'poller': ['common/linked_list.c', 'seatd/poller.c'],
 }
 
 foreach name, value : tests
-        test(name, executable(
-	   '@0@_test'.format(name),
-	   ['tests/@0@.c'.format(name), value],
-	   include_directories: [include_directories('.', 'include')]))
+	test(name, executable(
+		'@0@_test'.format(name),
+		['tests/@0@.c'.format(name), value],
+		include_directories: [include_directories('.', 'include')]))
 endforeach
 
 if get_option('server').enabled()
-    scdoc = dependency('scdoc', required: get_option('man-pages'), version: '>= 1.9.7', native: true)
+	scdoc = dependency('scdoc', required: get_option('man-pages'), version: '>= 1.9.7', native: true)
 else
-    scdoc = disabler()
+	scdoc = disabler()
 endif
 
 if scdoc.found()
@@ -232,8 +232,8 @@ if scdoc.found()
 endif
 
 summary({
-   'seatd': get_option('seatd').enabled(),
-   'builtin': get_option('builtin').enabled(),
-   'systemd': logind_provider == 'systemd',
-   'elogind': logind_provider == 'elogind',
+	'seatd': get_option('seatd').enabled(),
+	'builtin': get_option('builtin').enabled(),
+	'systemd': logind_provider == 'systemd',
+	'elogind': logind_provider == 'elogind',
 }, bool_yn: true)
