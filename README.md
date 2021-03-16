@@ -12,7 +12,7 @@ Seat management takes care of mediating access to shared devices (graphics, inpu
 
 ### seatd
 
-A seat management deamon, that does everything it needs to do. Nothing more, nothing less. Depends only on libc.
+A seat management daemon, that does everything it needs to do. Nothing more, nothing less. Depends only on libc.
 
 ### libseat
 
