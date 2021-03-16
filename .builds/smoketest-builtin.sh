@@ -18,8 +18,8 @@ fi
 cnt=0
 while [ "$cnt" -lt 2 ]
 do
-   echo "Simpletest run $cnt"
-   if ! sudo LIBSEAT_BACKEND=builtin LIBSEAT_LOGLEVEL=debug SEATD_SOCK=./seatd.sock ./build/simpletest $file
+   echo "Simpletest run $((cnt+1))"
+   if ! sudo LIBSEAT_BACKEND=builtin ./build/simpletest $file
    then
       echo "Simpletest failed"
       exit $res

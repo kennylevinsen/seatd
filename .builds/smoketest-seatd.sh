@@ -40,8 +40,8 @@ fi
 cnt=0
 while [ "$cnt" -lt 2 ]
 do
-   echo "Simpletest run $cnt"
-   if ! LIBSEAT_LOGLEVEL=debug SEATD_SOCK=./seatd.sock ./build/simpletest $file
+   echo "Simpletest run $((cnt+1))"
+   if ! SEATD_SOCK=./seatd.sock ./build/simpletest $file
    then
       echo "Simpletest failed"
       sudo killall seatd
