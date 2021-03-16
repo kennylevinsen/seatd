@@ -16,11 +16,9 @@ libseat_soversion = 1
 
 defaultpath = get_option('defaultpath')
 if defaultpath == ''
-	system = target_machine.system()
-	if system == 'linux'
-		defaultpath = '/run/seatd.sock'
-	else
-		defaultpath = '/var/run/seatd.sock'
+	defaultpath = '/var/run/seatd.sock'
+	if target_machine.system() == 'linux'
+	   defaultpath = '/run/seatd.sock'
 	endif
 endif
 
@@ -51,6 +49,10 @@ if ['debugoptimized', 'release', 'minsize'].contains(get_option('buildtype'))
 	add_project_arguments('-D_FORTIFY_SOURCE=2', language: 'c')
 endif
 
+if get_option('buildtype').startswith('debug')
+	add_project_arguments('-DDEBUG', language : 'c')
+endif
+
 # Hacks
 source_root = meson.current_source_dir().split('/')
 build_root = meson.build_root().split('/')
@@ -73,11 +75,6 @@ foreach p : source_root
 	endif
 	i += 1
 endforeach
-
-if get_option('buildtype').startswith('debug')
-	add_project_arguments('-DDEBUG', language : 'c')
-endif
-
 
 add_project_arguments(
 	'-DREL_SRC_DIR="@0@"'.format(join_paths(relative_dir_parts) + '/'),
@@ -208,12 +205,9 @@ endif
 if scdoc.found()
 	sh = find_program('sh', native: true)
 	scdoc_prog = find_program(scdoc.get_pkgconfig_variable('scdoc'), native: true)
-
-	man_pages = ['seatd.1.scd']
-
 	mandir = get_option('mandir')
 
-	foreach src : man_pages
+	foreach src : ['seatd.1.scd']
 		topic = src.split('.')[0]
 		section = src.split('.')[1]
 		output = '@0@.@1@'.format(topic, section)
