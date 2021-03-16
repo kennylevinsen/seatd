@@ -2,6 +2,6 @@ option('logind', type: 'feature', value: 'disabled', description: 'logind suppor
 option('seatd', type: 'feature', value: 'enabled', description: 'seatd support')
 option('builtin', type: 'feature', value: 'disabled', description: 'builtin seatd server')
 option('server', type: 'feature', value: 'enabled', description: 'seatd server')
-option('examples', type: 'feature', value: 'enabled', description: 'libseat example programs')
+option('examples', type: 'feature', value: 'disabled', description: 'libseat example programs')
 option('man-pages', type: 'feature', value: 'auto', description: 'Generate and install man pages')
 option('defaultpath', type: 'string', value: '', description: 'Default location for seatd socket (empty for default)')

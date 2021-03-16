@@ -10,7 +10,7 @@ sources:
    - https://git.sr.ht/~kennylevinsen/seatd
 tasks:
    - prepare: |
-      meson -Dseatd=enabled -Dbuiltin=enabled -Dlogind=disabled build seatd
+      meson -Dseatd=enabled -Dbuiltin=enabled -Dlogind=disabled -Dexamples=enabled build seatd
    - build: |
       ninja -C build
    - unittest: |
