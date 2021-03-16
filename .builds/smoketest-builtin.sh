@@ -16,7 +16,7 @@ fi
 # Run simpletest a few times
 #
 cnt=0
-while [ "$cnt" -lt 5 ]
+while [ "$cnt" -lt 2 ]
 do
    echo "Simpletest run $cnt"
    if ! sudo LIBSEAT_BACKEND=builtin LIBSEAT_LOGLEVEL=debug SEATD_SOCK=./seatd.sock ./build/simpletest $file
