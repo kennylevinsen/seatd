@@ -111,25 +111,25 @@ if get_option('seatd').enabled()
 endif
 
 logind_provider = ''
-if get_option('logind').enabled()
-	# Check for libelogind first, as elogind may provide a libsystemd wrapper
-	# which can cause issues.
-	logind = dependency('libelogind', required: false)
-	add_project_arguments('-DLOGIND_ENABLED=1', language: 'c')
-	if logind.found()
-		add_project_arguments('-DHAVE_ELOGIND=1', language: 'c')
-		logind_provider = 'elogind'
-	else
-		logind = dependency('libsystemd')
-		add_project_arguments('-DHAVE_SYSTEMD=1', language: 'c')
-		logind_provider = 'systemd'
-	endif
+if not get_option('logind').disabled()
+	foreach logind_provider : ['elogind', 'systemd']
+		logind = dependency('lib@0@'.format(logind_provider), required: false)
+		if logind.found()
+			break
+		endif
+	endforeach
 
-	private_files += [
-		'libseat/backend/logind.c',
-		'common/drm.c',
-	]
-	private_deps += logind
+	if logind.found()
+		add_project_arguments('-DLOGIND_ENABLED=1', language: 'c')
+		add_project_arguments('-DHAVE_@0@=1'.format(logind_provider.to_upper()), language: 'c')
+		private_files += [
+			'libseat/backend/logind.c',
+			'common/drm.c',
+		]
+		private_deps += logind
+	elif get_option('logind').enabled()
+		error('logind backend was enabled but no supported logind provider was found')
+	endif
 endif
 
 if get_option('builtin').enabled()
