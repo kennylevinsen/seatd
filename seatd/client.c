@@ -40,7 +40,7 @@ static int get_peer(int fd, pid_t *pid, uid_t *uid, gid_t *gid) {
 	if (getsockopt(fd, 0, LOCAL_PEERCRED, &cred, &len) == -1) {
 		return -1;
 	}
-#if __FreeBSD_version >= 1300030
+#if __FreeBSD_version >= 1300030 || (__FreeBSD_version >= 1202506 && __FreeBSD_version < 1300000)
 	*pid = cred.cr_pid;
 #else
 	*pid = -1;
