@@ -13,6 +13,7 @@
 extern const struct seat_impl seatd_impl;
 extern const struct seat_impl logind_impl;
 extern const struct seat_impl builtin_impl;
+extern const struct seat_impl noop_impl;
 
 static const struct named_backend impls[] = {
 #ifdef SEATD_ENABLED
@@ -24,6 +25,7 @@ static const struct named_backend impls[] = {
 #ifdef BUILTIN_ENABLED
 	{"builtin", &builtin_impl},
 #endif
+	{"noop", &noop_impl},
 	{NULL, NULL},
 };
 
@@ -62,6 +64,9 @@ struct libseat *libseat_open_seat(struct libseat_seat_listener *listener, void *
 
 	struct libseat *backend = NULL;
 	for (const struct named_backend *iter = impls; iter->backend != NULL; iter++) {
+		if (iter->backend == &noop_impl) {
+			continue;
+		}
 		backend = iter->backend->open_seat(listener, data);
 		if (backend != NULL) {
 			log_infof("Seat opened with backend '%s'", iter->name);

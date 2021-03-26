@@ -145,7 +145,7 @@ symbols_file = 'libseat/libseat.syms'
 symbols_flag = '-Wl,--version-script,@0@/@1@'.format(meson.current_source_dir(), symbols_file)
 lib = library(
 	'seat', # This results in the library being called 'libseat'
-	[ 'libseat/libseat.c' ],
+	[ 'libseat/libseat.c', 'libseat/backend/noop.c' ],
 	soversion: libseat_soversion,
 	link_with: private_lib,
 	include_directories: [include_directories('.', 'include')],
