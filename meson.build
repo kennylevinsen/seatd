@@ -164,6 +164,12 @@ pkgconfig.generate(lib,
 	description: 'Seat management library',
 )
 
+libseat = declare_dependency(
+	link_with: lib,
+	dependencies: private_deps,
+	include_directories: include_directories('include', is_system: true),
+)
+
 if get_option('server').enabled()
 	executable(
 		'seatd',
