@@ -26,6 +26,7 @@ static const struct named_backend impls[] = {
 	{"builtin", &builtin_impl},
 #endif
 	{"noop", &noop_impl},
+
 	{NULL, NULL},
 };
 
