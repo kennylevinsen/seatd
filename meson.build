@@ -102,7 +102,11 @@ server_files = [
 	'seatd/server.c',
 ]
 
-if get_option('seatd').enabled()
+with_seatd = get_option('seatd') == 'enabled'
+with_builtin = get_option('builtin') == 'enabled'
+with_server = get_option('server') == 'enabled'
+
+if with_seatd
 	private_files += 'libseat/backend/seatd.c'
 	add_project_arguments('-DSEATD_ENABLED=1', language: 'c')
 endif
@@ -134,7 +138,7 @@ if get_option('logind') != 'disabled'
 	endif
 endif
 
-if get_option('builtin').enabled()
+if with_builtin
 	add_project_arguments('-DBUILTIN_ENABLED=1', language: 'c')
 	private_files += server_files
 endif
@@ -175,7 +179,7 @@ libseat = declare_dependency(
 	include_directories: include_directories('include', is_system: true),
 )
 
-if get_option('server').enabled()
+if with_server
 	executable(
 		'seatd',
 		[ server_files, 'seatd/seatd.c' ],
@@ -184,7 +188,7 @@ if get_option('server').enabled()
 	)
 endif
 
-if get_option('examples').enabled()
+if get_option('examples') == 'enabled'
 	executable(
 		'simpletest',
 		['examples/simpletest/main.c'],
@@ -207,7 +211,7 @@ foreach name, value : tests
 		include_directories: [include_directories('.', 'include')]))
 endforeach
 
-if get_option('server').enabled()
+if with_server
 	scdoc = dependency('scdoc', required: get_option('man-pages'), version: '>= 1.9.7', native: true)
 else
 	scdoc = disabler()
@@ -236,8 +240,9 @@ if scdoc.found()
 endif
 
 summary({
-	'seatd': get_option('seatd').enabled(),
-	'builtin': get_option('builtin').enabled(),
+	'seatd': with_seatd,
+	'builtin': with_builtin,
+	'server': with_server,
 	'systemd': logind.found() and logind_provider == 'systemd',
 	'elogind': logind.found() and logind_provider == 'elogind',
 }, bool_yn: true)
