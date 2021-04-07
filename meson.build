@@ -109,13 +109,19 @@ endif
 
 logind = disabler()
 logind_provider = ''
-if not get_option('logind').disabled()
-	foreach logind_provider : ['elogind', 'systemd']
-		logind = dependency('lib@0@'.format(logind_provider), required: false)
-		if logind.found()
-			break
-		endif
-	endforeach
+if get_option('logind') != 'disabled'
+	if get_option('logind') == 'auto'
+		assert(get_option('auto_features').auto(), '-Dlogind must be set to systemd or elogind since auto_features != auto')
+		foreach logind_provider : ['elogind', 'systemd']
+			logind = dependency('lib@0@'.format(logind_provider), required: false)
+			if logind.found()
+				break
+			endif
+		endforeach
+	else
+		logind_provider = get_option('logind')
+		logind = dependency('lib@0@'.format(logind_provider))
+	endif
 
 	if logind.found()
 		add_project_arguments('-DLOGIND_ENABLED=1', language: 'c')
@@ -125,8 +131,6 @@ if not get_option('logind').disabled()
 			'common/drm.c',
 		]
 		private_deps += logind
-	elif get_option('logind').enabled()
-		error('logind backend was enabled but no supported logind provider was found')
 	endif
 endif
 

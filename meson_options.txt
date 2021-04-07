@@ -1,4 +1,4 @@
-option('logind', type: 'feature', value: 'disabled', description: 'logind support')
+option('logind', type: 'combo', choices: ['auto', 'disabled', 'elogind', 'systemd'], value: 'auto', description: 'logind support')
 option('seatd', type: 'feature', value: 'enabled', description: 'seatd support')
 option('builtin', type: 'feature', value: 'disabled', description: 'builtin seatd server')
 option('server', type: 'feature', value: 'enabled', description: 'seatd server')
