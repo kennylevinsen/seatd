@@ -239,6 +239,6 @@ endif
 summary({
 	'seatd': get_option('seatd').enabled(),
 	'builtin': get_option('builtin').enabled(),
-	'systemd': logind_provider == 'systemd',
-	'elogind': logind_provider == 'elogind',
+	'systemd': logind.found() and logind_provider == 'systemd',
+	'elogind': logind.found() and logind_provider == 'elogind',
 }, bool_yn: true)
