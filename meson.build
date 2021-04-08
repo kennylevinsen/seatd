@@ -107,6 +107,7 @@ if get_option('seatd').enabled()
 	add_project_arguments('-DSEATD_ENABLED=1', language: 'c')
 endif
 
+logind = disabler()
 logind_provider = ''
 if not get_option('logind').disabled()
 	foreach logind_provider : ['elogind', 'systemd']
