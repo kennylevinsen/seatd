@@ -114,7 +114,9 @@ endif
 logind = disabler()
 logind_provider = ''
 if get_option('logind') != 'disabled'
-	if get_option('logind') == 'auto'
+	if get_option('logind') == 'auto' and get_option('auto_features').disabled()
+		# Disable logind
+	elif get_option('logind') == 'auto'
 		assert(get_option('auto_features').auto(), '-Dlogind must be set to systemd or elogind since auto_features != auto')
 		foreach logind_provider : ['elogind', 'systemd']
 			logind = dependency('lib@0@'.format(logind_provider), required: false)
