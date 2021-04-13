@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
@@ -16,6 +17,17 @@
 #include "server.h"
 
 #define LISTEN_BACKLOG 16
+
+static const int verbosity_syslog_level[] = {
+	[LIBSEAT_LOG_LEVEL_SILENT] = LOG_DAEMON | LOG_DEBUG,
+	[LIBSEAT_LOG_LEVEL_ERROR] = LOG_DAEMON | LOG_ERR,
+	[LIBSEAT_LOG_LEVEL_INFO] = LOG_DAEMON | LOG_INFO,
+	[LIBSEAT_LOG_LEVEL_DEBUG] = LOG_DAEMON | LOG_DEBUG,
+};
+
+static void log_syslog(enum libseat_log_level level, const char *fmt, va_list args) {
+	syslog(verbosity_syslog_level[level], fmt, args);
+}
 
 static int open_socket(const char *path, int uid, int gid) {
 	union {
@@ -78,6 +90,7 @@ int main(int argc, char *argv[]) {
 			    "  -u <user>	User to own the seatd socket\n"
 			    "  -g <group>	Group to own the seatd socket\n"
 			    "  -s <path>	Where to create the seatd socket\n"
+			    "  -z		Log to syslog\n"
 			    "  -v		Show the version number\n"
 			    "\n";
 
@@ -85,7 +98,7 @@ int main(int argc, char *argv[]) {
 	int uid = -1, gid = -1;
 	int readiness = -1;
 	const char *socket_path = getenv("SEATD_SOCK");
-	while ((c = getopt(argc, argv, "vhn:s:g:u:")) != -1) {
+	while ((c = getopt(argc, argv, "vhzn:s:g:u:")) != -1) {
 		switch (c) {
 		case 'n':
 			readiness = atoi(optarg);
@@ -117,6 +130,9 @@ int main(int argc, char *argv[]) {
 			}
 			break;
 		}
+		case 'z':
+			libseat_set_log_handler(log_syslog);
+			break;
 		case 'v':
 			printf("seatd version %s\n", SEATD_VERSION);
 			return 0;
