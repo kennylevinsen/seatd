@@ -1,3 +1,5 @@
+#define _DEFAULT_SOURCE
+
 #include <errno.h>
 #include <grp.h>
 #include <poll.h>
@@ -6,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
@@ -52,6 +55,17 @@ static int open_socket(const char *path, int uid, int gid) {
 	return fd;
 }
 
+static const int verbosity_syslog_level[] = {
+	[LIBSEAT_LOG_LEVEL_SILENT] = LOG_DAEMON | LOG_DEBUG,
+	[LIBSEAT_LOG_LEVEL_ERROR] = LOG_DAEMON | LOG_ERR,
+	[LIBSEAT_LOG_LEVEL_INFO] = LOG_DAEMON | LOG_INFO,
+	[LIBSEAT_LOG_LEVEL_DEBUG] = LOG_DAEMON | LOG_DEBUG,
+};
+
+static void log_syslog(enum libseat_log_level level, const char *fmt, va_list args) {
+	vsyslog(verbosity_syslog_level[level], fmt, args);
+}
+
 int main(int argc, char *argv[]) {
 	char *loglevel = getenv("SEATD_LOGLEVEL");
 	enum libseat_log_level level = LIBSEAT_LOG_LEVEL_ERROR;
@@ -66,6 +80,7 @@ int main(int argc, char *argv[]) {
 	}
 	log_init();
 	libseat_set_log_level(level);
+	libseat_set_log_handler(log_syslog);
 
 	const char *usage = "Usage: seatd [options]\n"
 			    "\n"
