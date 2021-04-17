@@ -4,7 +4,8 @@ Documentation=man:seatd(1)
 
 [Service]
 Type=simple
-ExecStart=seatd -g video
+# Specify the group you'd like to grant access to seatd
+ExecStart=seatd -g seat
 Restart=always
 RestartSec=1
 
