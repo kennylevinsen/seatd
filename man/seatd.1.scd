@@ -13,6 +13,11 @@ seatd - A seat management daemon
 *-h*
 	Show help message and quit.
 
+*-n*
+	FD to notify readiness on. A single newline will be written and the fd
+	closed when seatd is ready to serve requests. This is compatible with
+	s6's notification protocol.
+
 *-u <user>*
 	User to own the seatd socket.
 

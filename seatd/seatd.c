@@ -70,6 +70,7 @@ int main(int argc, char *argv[]) {
 	const char *usage = "Usage: seatd [options]\n"
 			    "\n"
 			    "  -h		Show this help message\n"
+			    "  -n <fd>          FD to notify readiness on\n"
 			    "  -u <user>	User to own the seatd socket\n"
 			    "  -g <group>	Group to own the seatd socket\n"
 			    "  -s <path>	Where to create the seatd socket\n"
@@ -78,9 +79,17 @@ int main(int argc, char *argv[]) {
 
 	int c;
 	int uid = 0, gid = 0;
+	int readiness = -1;
 	const char *socket_path = getenv("SEATD_SOCK");
-	while ((c = getopt(argc, argv, "vhs:g:u:")) != -1) {
+	while ((c = getopt(argc, argv, "vhn:s:g:u:")) != -1) {
 		switch (c) {
+		case 'n':
+			readiness = atoi(optarg);
+			if (readiness < 0) {
+				fprintf(stderr, "Invalid readiness fd: %s\n", optarg);
+				return 1;
+			}
+			break;
 		case 's':
 			socket_path = optarg;
 			break;
@@ -148,6 +157,13 @@ int main(int argc, char *argv[]) {
 	}
 
 	log_info("seatd started");
+
+	if (readiness != -1) {
+		if (write(readiness, "\n", 1) == -1) {
+			log_errorf("Could not write readiness signal: %s\n", strerror(errno));
+		}
+		close(readiness);
+	}
 
 	while (server.running) {
 		if (poller_poll(&server.poller) == -1) {
