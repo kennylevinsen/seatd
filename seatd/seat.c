@@ -19,7 +19,7 @@
 #include "terminal.h"
 
 static int seat_close_client(struct client *client);
-static void vt_close(struct seat *seat);
+static int vt_close(int vt);
 
 struct seat *seat_create(const char *seat_name, bool vt_bound) {
 	struct seat *seat = calloc(1, sizeof(struct seat));
@@ -30,7 +30,6 @@ struct seat *seat_create(const char *seat_name, bool vt_bound) {
 	seat->vt_bound = vt_bound;
 	seat->seat_name = strdup(seat_name);
 	seat->cur_vt = 0;
-	seat->cur_ttyfd = -1;
 	if (seat->seat_name == NULL) {
 		free(seat);
 		return NULL;
@@ -50,7 +49,6 @@ void seat_destroy(struct seat *seat) {
 		assert(client->seat == seat);
 		client_destroy(client);
 	}
-	vt_close(seat);
 	linked_list_remove(&seat->link);
 	free(seat->seat_name);
 	free(seat);
@@ -66,47 +64,30 @@ static void seat_update_vt(struct seat *seat) {
 	close(tty0fd);
 }
 
-static int vt_open(struct seat *seat, int vt) {
+static int vt_open(int vt) {
 	assert(vt != -1);
-	if (seat->cur_ttyfd != -1) {
-		terminal_set_process_switching(seat->cur_ttyfd, true);
-		close(seat->cur_ttyfd);
-	}
-	seat->cur_ttyfd = terminal_open(vt);
-	if (seat->cur_ttyfd == -1) {
+	int ttyfd = terminal_open(vt);
+	if (ttyfd == -1) {
 		log_errorf("Could not open terminal for VT %d: %s", vt, strerror(errno));
 		return -1;
 	}
 
-	terminal_set_process_switching(seat->cur_ttyfd, true);
-	terminal_set_keyboard(seat->cur_ttyfd, false);
-	terminal_set_graphics(seat->cur_ttyfd, true);
+	terminal_set_process_switching(ttyfd, true);
+	terminal_set_keyboard(ttyfd, false);
+	terminal_set_graphics(ttyfd, true);
+	close(ttyfd);
 	return 0;
 }
 
-static void vt_close_fd(int fd) {
-	terminal_set_process_switching(fd, true);
-	terminal_set_keyboard(fd, true);
-	terminal_set_graphics(fd, false);
-}
-
-static void vt_close(struct seat *seat) {
-	if (seat->cur_ttyfd == -1) {
-		return;
-	}
-
-	vt_close_fd(seat->cur_ttyfd);
-	close(seat->cur_ttyfd);
-	seat->cur_ttyfd = -1;
-}
-
-static int vt_close_num(int vt) {
+static int vt_close(int vt) {
 	int ttyfd = terminal_open(vt);
 	if (ttyfd == -1) {
 		log_errorf("Could not open terminal to clean up VT %d: %s", vt, strerror(errno));
 		return -1;
 	}
-	vt_close_fd(ttyfd);
+	terminal_set_process_switching(ttyfd, true);
+	terminal_set_keyboard(ttyfd, true);
+	terminal_set_graphics(ttyfd, false);
 	close(ttyfd);
 	return 0;
 }
@@ -452,7 +433,7 @@ int seat_open_client(struct seat *seat, struct client *client) {
 		return -1;
 	}
 
-	if (seat->vt_bound && vt_open(seat, client->session) == -1) {
+	if (seat->vt_bound && vt_open(client->session) == -1) {
 		log_error("Could not open VT for client");
 		goto error;
 	}
@@ -477,7 +458,7 @@ int seat_open_client(struct seat *seat, struct client *client) {
 
 error:
 	if (seat->vt_bound) {
-		vt_close(seat);
+		vt_close(seat->cur_vt);
 	}
 	return -1;
 }
@@ -506,12 +487,12 @@ static int seat_close_client(struct client *client) {
 			// This client was current, but there were no clients
 			// waiting to take this VT, so clean it up.
 			log_debug("Closing active VT");
-			vt_close(seat);
+			vt_close(seat->cur_vt);
 		} else if (!was_current && client->state != CLIENT_CLOSED) {
 			// This client was not current, but as the client was
 			// running, we need to clean up the VT.
 			log_debug("Closing inactive VT");
-			vt_close_num(client->session);
+			vt_close(client->session);
 		}
 	}
 
