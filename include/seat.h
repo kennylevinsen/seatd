@@ -33,7 +33,6 @@ struct seat {
 	struct client *next_client;
 
 	bool vt_bound;
-	int cur_ttyfd;
 	int cur_vt;
 	int session_cnt;
 };
