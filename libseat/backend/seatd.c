@@ -75,7 +75,11 @@ static int seatd_connect(void) {
 	strncpy(addr.unix.sun_path, path, sizeof addr.unix.sun_path - 1);
 	socklen_t size = offsetof(struct sockaddr_un, sun_path) + strlen(addr.unix.sun_path);
 	if (connect(fd, &addr.generic, size) == -1) {
-		log_errorf("Could not connect to socket %s: %s", path, strerror(errno));
+		if (errno == ENOENT) {
+			log_infof("Could not connect to socket %s: %s", path, strerror(errno));
+		} else {
+			log_errorf("Could not connect to socket %s: %s", path, strerror(errno));
+		}
 		close(fd);
 		return -1;
 	};
