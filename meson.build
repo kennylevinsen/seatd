@@ -106,8 +106,11 @@ with_seatd = get_option('seatd') == 'enabled'
 with_builtin = get_option('builtin') == 'enabled'
 with_server = get_option('server') == 'enabled'
 
-if with_seatd
+if with_seatd or with_builtin
 	private_files += 'libseat/backend/seatd.c'
+endif
+
+if with_seatd
 	add_project_arguments('-DSEATD_ENABLED=1', language: 'c')
 endif
 
