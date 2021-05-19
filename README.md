@@ -41,6 +41,6 @@ Why spend time isolating logind and keeping up with upstream when we could inste
 
 Instead of giving user shell developers more work, libseat aims to make supporting seatd less work than what they're currently implementing. This is done by taking care of all the seat management needs with multiple backends, providing not only seatd support, but replacing the existing logind and direct seat management implementations.
 
-## I want more
+## How to discuss
 
-Go to #kennylevinsen @ chat.freenode.net to discuss, or use [~kennylevinsen/seatd-devel@lists.sr.ht](https://lists.sr.ht/~kennylevinsen/seatd-devel).
+Go to #kennylevinsen @ irc.libera.chat to discuss, or use [~kennylevinsen/seatd-devel@lists.sr.ht](https://lists.sr.ht/~kennylevinsen/seatd-devel).
