@@ -143,6 +143,10 @@ if get_option('logind') != 'disabled'
 	endif
 endif
 
+# needed for cross-compilation
+realtime = meson.get_compiler('c').find_library('rt')
+private_deps += realtime
+
 if with_builtin
 	add_project_arguments('-DBUILTIN_ENABLED=1', language: 'c')
 	private_files += server_files
@@ -198,6 +202,7 @@ if with_server
 		[ server_files, 'seatd/seatd.c' ],
 		include_directories: [include_directories('.', 'include')],
 		install: true,
+		dependencies: [realtime],
 	)
 endif
 
