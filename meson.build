@@ -102,8 +102,8 @@ server_files = [
 	'seatd/server.c',
 ]
 
-with_seatd = get_option('seatd') == 'enabled'
-with_builtin = get_option('builtin') == 'enabled'
+with_seatd = get_option('libseat-seatd') == 'enabled'
+with_builtin = get_option('libseat-builtin') == 'enabled'
 with_server = get_option('server') == 'enabled'
 
 if with_seatd or with_builtin
@@ -116,11 +116,11 @@ endif
 
 logind = disabler()
 logind_provider = ''
-if get_option('logind') != 'disabled'
-	if get_option('logind') == 'auto' and get_option('auto_features').disabled()
+if get_option('libseat-logind') != 'disabled'
+	if get_option('libseat-logind') == 'auto' and get_option('auto_features').disabled()
 		# Disable logind
-	elif get_option('logind') == 'auto'
-		assert(get_option('auto_features').auto(), '-Dlogind must be set to systemd or elogind since auto_features != auto')
+	elif get_option('libseat-logind') == 'auto'
+		assert(get_option('auto_features').auto(), '-Dlibseat-logind must be set to systemd or elogind since auto_features != auto')
 		foreach logind_provider : ['elogind', 'systemd']
 			logind = dependency('lib@0@'.format(logind_provider), required: false)
 			if logind.found()
@@ -128,7 +128,7 @@ if get_option('logind') != 'disabled'
 			endif
 		endforeach
 	else
-		logind_provider = get_option('logind')
+		logind_provider = get_option('libseat-logind')
 		logind = dependency('lib@0@'.format(logind_provider))
 	endif
 
@@ -258,9 +258,9 @@ if scdoc.found()
 endif
 
 summary({
-	'seatd': with_seatd,
-	'builtin': with_builtin,
+	'libseat-seatd': with_seatd,
+	'libseat-builtin': with_builtin,
+	'libseat-systemd': logind.found() and logind_provider == 'systemd',
+	'libseat-elogind': logind.found() and logind_provider == 'elogind',
 	'server': with_server,
-	'systemd': logind.found() and logind_provider == 'systemd',
-	'elogind': logind.found() and logind_provider == 'elogind',
 }, bool_yn: true)
