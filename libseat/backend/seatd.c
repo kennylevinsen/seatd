@@ -206,10 +206,11 @@ static int queue_event(struct backend_seatd *backend, int opcode) {
 	return 0;
 }
 
-static void execute_events(struct backend_seatd *backend) {
+static int execute_events(struct backend_seatd *backend) {
 	struct linked_list list;
 	linked_list_init(&list);
 	linked_list_take(&list, &backend->pending_events);
+	int executed = 0;
 	while (!linked_list_empty(&list)) {
 		struct pending_event *ev = (struct pending_event *)list.next;
 		int opcode = ev->opcode;
@@ -231,7 +232,9 @@ static void execute_events(struct backend_seatd *backend) {
 			log_errorf("Invalid opcode: %d", opcode);
 			abort();
 		}
+		executed++;
 	}
+	return executed;
 }
 
 static int dispatch_pending(struct backend_seatd *backend, int *opcode) {
@@ -341,7 +344,7 @@ static int dispatch_background(struct libseat *base, int timeout) {
 		return -1;
 	}
 
-	execute_events(backend);
+	dispatched += execute_events(backend);
 	return dispatched;
 }
 
