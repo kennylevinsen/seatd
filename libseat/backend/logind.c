@@ -213,7 +213,7 @@ static int poll_connection(struct backend_logind *backend, int timeout) {
 	return 0;
 }
 
-static int dispatch_background(struct libseat *base, int timeout) {
+static int dispatch_and_execute(struct libseat *base, int timeout) {
 	struct backend_logind *backend = backend_logind_from_libseat_backend(base);
 	if (backend->initial_setup) {
 		backend->initial_setup = false;
@@ -688,5 +688,5 @@ const struct seat_impl logind_impl = {
 	.close_device = close_device,
 	.switch_session = switch_session,
 	.get_fd = get_fd,
-	.dispatch = dispatch_background,
+	.dispatch = dispatch_and_execute,
 };

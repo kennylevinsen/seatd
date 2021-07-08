@@ -326,7 +326,7 @@ static int get_fd(struct libseat *base) {
 	return backend->connection.fd;
 }
 
-static int dispatch_background(struct libseat *base, int timeout) {
+static int dispatch_and_execute(struct libseat *base, int timeout) {
 	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
 	if (backend->error) {
 		errno = ENOTCONN;
@@ -575,7 +575,7 @@ const struct seat_impl seatd_impl = {
 	.close_device = close_device,
 	.switch_session = switch_session,
 	.get_fd = get_fd,
-	.dispatch = dispatch_background,
+	.dispatch = dispatch_and_execute,
 };
 
 #ifdef BUILTIN_ENABLED
@@ -660,6 +660,6 @@ const struct seat_impl builtin_impl = {
 	.close_device = close_device,
 	.switch_session = switch_session,
 	.get_fd = get_fd,
-	.dispatch = dispatch_background,
+	.dispatch = dispatch_and_execute,
 };
 #endif
