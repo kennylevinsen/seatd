@@ -134,6 +134,9 @@ int libseat_get_fd(struct libseat *seat);
  *
  * Returns a positive number signifying processed internal messages on success.
  * Returns 0 if no messages were processed. Returns -1 and sets errno on error.
+ *
+ * This should be called until it returns 0 before sleeping in an event loop,
+ * in order to ensure that all pending events are drained.
  */
 int libseat_dispatch(struct libseat *seat, int timeout);
 

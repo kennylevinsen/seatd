@@ -401,7 +401,6 @@ static struct libseat *_open_seat(struct libseat_seat_listener *listener, void *
 		goto backend_error;
 	}
 
-	execute_events(backend);
 	return &backend->base;
 
 backend_error:
@@ -435,12 +434,10 @@ static int close_seat(struct libseat *base) {
 		goto error;
 	}
 
-	execute_events(backend);
 	destroy(backend);
 	return 0;
 
 error:
-	execute_events(backend);
 	destroy(backend);
 	return -1;
 }
@@ -481,11 +478,9 @@ static int open_device(struct libseat *base, const char *path, int *fd) {
 		goto error;
 	}
 
-	execute_events(backend);
 	return rmsg.device_id;
 
 error:
-	execute_events(backend);
 	return -1;
 }
 
@@ -516,11 +511,9 @@ static int close_device(struct libseat *base, int device_id) {
 		goto error;
 	}
 
-	execute_events(backend);
 	return 0;
 
 error:
-	execute_events(backend);
 	return -1;
 }
 
