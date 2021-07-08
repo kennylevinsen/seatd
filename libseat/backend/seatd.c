@@ -262,6 +262,15 @@ static int dispatch_pending(struct backend_seatd *backend, int *opcode) {
 	return packets;
 }
 
+static int dispatch_pending_and_execute(struct backend_seatd *backend) {
+	int dispatched = dispatch_pending(backend, NULL);
+	if (dispatched == -1) {
+		return -1;
+	}
+	dispatched += execute_events(backend);
+	return dispatched;
+}
+
 static int poll_connection(struct backend_seatd *backend, int timeout) {
 	struct pollfd fd = {
 		.fd = backend->connection.fd,
@@ -324,28 +333,34 @@ static int dispatch_background(struct libseat *base, int timeout) {
 		return -1;
 	}
 
-	int dispatched = dispatch_pending(backend, NULL);
-	if (dispatched > 0) {
-		// We don't want to block if we dispatched something, as the
-		// caller might be waiting for the result. However, we'd also
-		// like to read anything pending.
-		timeout = 0;
+	int predispatch = dispatch_pending_and_execute(backend);
+	if (predispatch == -1) {
+		return -1;
 	}
+
+	// We don't want to block if we dispatched something, as the
+	// caller might be waiting for the result. However, we'd also
+	// like to read anything pending.
 	int read = 0;
-	if (timeout == 0) {
+	if (predispatch == 0 || timeout == 0) {
 		read = connection_read(&backend->connection);
 	} else {
 		read = poll_connection(backend, timeout);
 	}
-	if (read > 0) {
-		dispatched += dispatch_pending(backend, NULL);
+
+	if (read == 0) {
+		return predispatch;
 	} else if (read == -1 && errno != EAGAIN) {
 		log_errorf("Could not read from connection: %s", strerror(errno));
 		return -1;
 	}
 
-	dispatched += execute_events(backend);
-	return dispatched;
+	int postdispatch = dispatch_pending_and_execute(backend);
+	if (postdispatch == -1) {
+		return -1;
+	}
+
+	return predispatch + postdispatch;
 }
 
 static struct libseat *_open_seat(struct libseat_seat_listener *listener, void *data, int fd) {
