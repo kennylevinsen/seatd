@@ -47,8 +47,10 @@ struct libseat_seat_listener {
  * The available backends, if enabled at compile-time, are: seatd, logind and
  * builtin.
  *
- * To use builtin, the process must have CAP_SYS_ADMIN or be root at the time
- * of the call. These privileges can be dropped at any point after the call.
+ * To use builtin, the process must have permission to open and use the seat's
+ * devices at the time of the call. In the case of DRM devices, this includes
+ * permission for drmSetMaster(3). These privileges can be dropped at any
+ * point after the call.
  *
  * The returned pointer must be destroyed with libseat_close_seat.
  *
