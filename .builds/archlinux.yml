@@ -9,7 +9,7 @@ sources:
    - https://git.sr.ht/~kennylevinsen/seatd
 tasks:
    - prepare: |
-      meson -Db_sanitize=address -Dlogind=auto -Dseatd=enabled -Dbuiltin=enabled -Dexamples=enabled build seatd
+      meson -Db_sanitize=address -Dlibseat-logind=auto -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dexamples=enabled build seatd
    - build: |
       ninja -C build
    - unittest: |

@@ -5,14 +5,14 @@ sources:
    - https://git.sr.ht/~kennylevinsen/seatd
 tasks:
    - prepare: |
-      meson -Dseatd=enabled -Dbuiltin=enabled -Dlogind=disabled build seatd
+      meson -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dlibseat-logind=disabled build seatd
    - build: |
       ninja -C build
    - unittest: |
       ninja -C build test
    - smoketest: |
       rm -rf build
-      meson -Db_lundef=false -Db_sanitize=address -Dseatd=enabled -Dbuiltin=enabled -Dexamples=enabled -Dlogind=disabled build seatd
+      meson -Db_lundef=false -Db_sanitize=address -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dexamples=enabled -Dlibseat-logind=disabled build seatd
       ninja -C build
       timeout -s KILL 30s ./seatd/.builds/smoketest-seatd.sh
    - smoketest-builtin: |
