@@ -204,6 +204,13 @@ if with_server
 		install: true,
 		dependencies: [realtime],
 	)
+	executable(
+		'seatd-launch',
+		[ 'seatd-launch/seatd-launch.c' ],
+		include_directories: [include_directories('.', 'include')],
+		install: true,
+		dependencies: [realtime],
+	)
 endif
 
 if get_option('examples') == 'enabled'
