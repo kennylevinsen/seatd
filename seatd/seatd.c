@@ -41,11 +41,11 @@ static int open_socket(const char *path, int uid, int gid) {
 		close(fd);
 		return -1;
 	}
-	if (uid != 0 || gid != 0) {
-		if (chown(path, uid, gid) == -1) {
+	if (uid != -1 || gid != -1) {
+		if (fchown(fd, uid, gid) == -1) {
 			log_errorf("Could not chown socket to uid %d, gid %d: %s", uid, gid,
 				   strerror(errno));
-		} else if (chmod(path, 0770) == -1) {
+		} else if (fchmod(fd, 0770) == -1) {
 			log_errorf("Could not chmod socket: %s", strerror(errno));
 		}
 	}
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
 			    "\n";
 
 	int c;
-	int uid = 0, gid = 0;
+	int uid = -1, gid = -1;
 	int readiness = -1;
 	const char *socket_path = getenv("SEATD_SOCK");
 	while ((c = getopt(argc, argv, "vhn:s:g:u:")) != -1) {
