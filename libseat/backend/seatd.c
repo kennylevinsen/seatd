@@ -342,7 +342,7 @@ static int dispatch_and_execute(struct libseat *base, int timeout) {
 	// caller might be waiting for the result. However, we'd also
 	// like to read anything pending.
 	int read = 0;
-	if (predispatch == 0 || timeout == 0) {
+	if (predispatch > 0 || timeout == 0) {
 		read = connection_read(&backend->connection);
 	} else {
 		read = poll_connection(backend, timeout);
