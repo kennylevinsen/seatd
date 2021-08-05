@@ -1,27 +1,5 @@
 #!/bin/sh
 
-#
-# Start seatd
-#
-[ -f seatd.sock ] && sudo rm seatd.sock
-sudo SEATD_LOGLEVEL=debug SEATD_SOCK=./seatd.sock ./build/seatd &
-
-# seatd is started in the background, so wait for it to come alive
-cnt=0
-while ! [ -e ./seatd.sock ] && [ "$cnt" -lt 10 ]
-do
-   sleep 0.1
-   cnt=$((cnt+1))
-done
-
-if ! [ -e ./seatd.sock ]
-then
-   echo "seatd socket not found"
-   exit 1
-fi
-
-sudo chmod 777 ./seatd.sock
-
 # Devices that exist on sr.ht
 if [ -e "/dev/input/event0" ]
 then
@@ -34,6 +12,8 @@ else
    exit 1
 fi
 
+export SEATD_LOGLEVEL=debug
+export PATH=$(pwd)/build:$PATH
 #
 # Run simpletest a few times
 #
@@ -41,18 +21,12 @@ cnt=0
 while [ "$cnt" -lt 2 ]
 do
    echo "Simpletest run $((cnt+1))"
-   if ! SEATD_SOCK=./seatd.sock ./build/simpletest $file
+   if ! sudo -E seatd-launch ./build/simpletest $file
    then
       echo "Simpletest failed"
-      sudo killall seatd
       exit 1
    fi
    cnt=$((cnt+1))
 done
-
-#
-# Wait for it to shut down
-#
-sudo killall seatd 2>/dev/null
 
 echo "smoketest-seatd completed"
