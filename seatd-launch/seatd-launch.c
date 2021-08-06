@@ -13,10 +13,42 @@
 
 int main(int argc, char *argv[]) {
 	(void)argc;
-	char sockbuf[256];
 
-	sprintf(sockbuf, "/tmp/seatd.%d.sock", getpid());
-	unlink(sockbuf);
+	const char *usage = "Usage: seatd-launch [options] [--] command\n"
+			    "\n"
+			    "  -h		Show this help message\n"
+			    "  -s <path>	Where to create the seatd socket\n"
+			    "  -v		Show the version number\n"
+			    "\n";
+
+	int c;
+	char *sockpath = NULL;
+	while ((c = getopt(argc, argv, "vhs:")) != -1) {
+		switch (c) {
+		case 's':
+			sockpath = optarg;
+			break;
+		case 'v':
+			printf("seatd-launch version %s\n", SEATD_VERSION);
+			return 0;
+		case 'h':
+			printf("%s", usage);
+			return 0;
+		case '?':
+			fprintf(stderr, "Try '%s -h' for more information.\n", argv[0]);
+			return 1;
+		default:
+			abort();
+		}
+	}
+
+	char sockbuf[256];
+	if (sockpath == NULL) {
+		sprintf(sockbuf, "/tmp/seatd.%d.sock", getpid());
+		sockpath = sockbuf;
+	}
+
+	unlink(sockpath);
 
 	int fds[2];
 	if (pipe(fds) == -1) {
@@ -41,7 +73,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		// TODO: Make seatd accept the numeric UID
-		execlp("seatd", "seatd", "-n", pipebuf, "-u", user->pw_name, "-s", sockbuf, NULL);
+		execlp("seatd", "seatd", "-n", pipebuf, "-u", user->pw_name, "-s", sockpath, NULL);
 		perror("Could not start seatd");
 		_exit(1);
 	}
@@ -100,7 +132,7 @@ int main(int argc, char *argv[]) {
 		perror("Could not fork target process");
 		goto error_seatd;
 	} else if (child == 0) {
-		setenv("SEATD_SOCK", sockbuf, 1);
+		setenv("SEATD_SOCK", sockpath, 1);
 		execv(argv[1], &argv[1]);
 		perror("Could not start target");
 		_exit(1);
@@ -117,7 +149,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	unlink(sockbuf);
+	unlink(sockpath);
 	kill(seatd_child, SIGTERM);
 
 	if (WIFEXITED(status)) {
@@ -127,7 +159,7 @@ int main(int argc, char *argv[]) {
 	}
 
 error_seatd:
-	unlink(sockbuf);
+	unlink(sockpath);
 	kill(seatd_child, SIGTERM);
 error:
 	return 1;
