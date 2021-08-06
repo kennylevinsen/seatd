@@ -33,7 +33,12 @@ int main(int argc, char *argv[]) {
 
 		char pipebuf[8];
 		sprintf(pipebuf, "%d", fds[1]);
+
 		struct passwd *user = getpwuid(getuid());
+		if (!user) {
+			perror("getpwuid failed");
+			_exit(1);
+		}
 
 		// TODO: Make seatd accept the numeric UID
 		execlp("seatd", "seatd", "-n", pipebuf, "-u", user->pw_name, "-s", sockbuf, NULL);
