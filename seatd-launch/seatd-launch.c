@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
 		// TODO: Make seatd accept the numeric UID
 		execlp("seatd", "seatd", "-n", pipebuf, "-u", user->pw_name, "-s", sockbuf, NULL);
 		perror("Could not start seatd");
-		goto error;
+		_exit(1);
 	}
 	close(fds[1]);
 
@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
 		setenv("SEATD_SOCK", sockbuf, 1);
 		execv(argv[1], &argv[1]);
 		perror("Could not start target");
-		goto error_seatd;
+		_exit(1);
 	}
 
 	int status = 0;
