@@ -101,8 +101,9 @@ int main(int argc, char *argv[]) {
 		goto error_seatd;
 	}
 
+	int status = 0;
 	while (true) {
-		pid_t p = waitpid(child, NULL, 0);
+		pid_t p = waitpid(child, &status, 0);
 		if (p == child) {
 			break;
 		} else if (p == -1 && errno != EINTR) {
@@ -113,7 +114,12 @@ int main(int argc, char *argv[]) {
 
 	unlink(sockbuf);
 	kill(seatd_child, SIGTERM);
-	return 0;
+
+	if (WIFEXITED(status)) {
+		return WEXITSTATUS(status);
+	} else {
+		return 1;
+	}
 
 error_seatd:
 	unlink(sockbuf);
