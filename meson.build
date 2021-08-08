@@ -22,7 +22,8 @@ if defaultpath == ''
 	endif
 endif
 
-add_project_arguments(
+cc = meson.get_compiler('c')
+add_project_arguments(cc.get_supported_arguments(
 	[
 		'-Wundef',
 		'-Wunused',
@@ -41,7 +42,7 @@ add_project_arguments(
 		'-D__BSD_VISIBLE',
 		'-DSEATD_VERSION="@0@"'.format(meson.project_version()),
 		'-DSEATD_DEFAULTPATH="@0@"'.format(defaultpath)
-	],
+	]),
 	language: 'c',
 )
 
