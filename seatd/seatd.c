@@ -33,23 +33,27 @@ static int open_socket(const char *path, int uid, int gid) {
 	socklen_t size = offsetof(struct sockaddr_un, sun_path) + strlen(addr.unix.sun_path);
 	if (bind(fd, &addr.generic, size) == -1) {
 		log_errorf("Could not bind socket: %s", strerror(errno));
-		close(fd);
-		return -1;
+		goto error;
 	}
 	if (listen(fd, LISTEN_BACKLOG) == -1) {
 		log_errorf("Could not listen on socket: %s", strerror(errno));
-		close(fd);
-		return -1;
+		goto error;
 	}
 	if (uid != -1 || gid != -1) {
 		if (fchown(fd, uid, gid) == -1) {
 			log_errorf("Could not chown socket to uid %d, gid %d: %s", uid, gid,
 				   strerror(errno));
-		} else if (fchmod(fd, 0770) == -1) {
+			goto error;
+		}
+		if (fchmod(fd, 0770) == -1) {
 			log_errorf("Could not chmod socket: %s", strerror(errno));
+			goto error;
 		}
 	}
 	return fd;
+error:
+	close(fd);
+	return -1;
 }
 
 int main(int argc, char *argv[]) {
