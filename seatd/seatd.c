@@ -40,12 +40,12 @@ static int open_socket(const char *path, int uid, int gid) {
 		goto error;
 	}
 	if (uid != -1 || gid != -1) {
-		if (fchown(fd, uid, gid) == -1) {
+		if (chown(path, uid, gid) == -1) {
 			log_errorf("Could not chown socket to uid %d, gid %d: %s", uid, gid,
 				   strerror(errno));
 			goto error;
 		}
-		if (fchmod(fd, 0770) == -1) {
+		if (chmod(path, 0770) == -1) {
 			log_errorf("Could not chmod socket: %s", strerror(errno));
 			goto error;
 		}
@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
 
 	int socket_fd = open_socket(socket_path, uid, gid);
 	if (socket_fd == -1) {
-		log_errorf("Could not create server socket: %s", strerror(errno));
+		log_error("Could not create server socket");
 		server_finish(&server);
 		return 1;
 	}
