@@ -55,7 +55,7 @@ struct libseat_seat_listener {
  * Returns a pointer to an opaque libseat struct on success. Returns NULL and
  * sets errno on error.
  */
-struct libseat *libseat_open_seat(struct libseat_seat_listener *listener, void *userdata);
+struct libseat *libseat_open_seat(const struct libseat_seat_listener *listener, void *userdata);
 
 /*
  * Disables a seat, used in response to a disable_seat event. After disabling

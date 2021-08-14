@@ -13,7 +13,7 @@
 
 struct backend_noop {
 	struct libseat base;
-	struct libseat_seat_listener *seat_listener;
+	const struct libseat_seat_listener *seat_listener;
 	void *seat_listener_data;
 
 	bool initial_setup;
@@ -103,7 +103,7 @@ static int dispatch_background(struct libseat *base, int timeout) {
 	return 0;
 }
 
-static struct libseat *noop_open_seat(struct libseat_seat_listener *listener, void *data) {
+static struct libseat *noop_open_seat(const struct libseat_seat_listener *listener, void *data) {
 	struct backend_noop *backend = calloc(1, sizeof(struct backend_noop));
 	if (backend == NULL) {
 		return NULL;

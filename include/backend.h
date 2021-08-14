@@ -16,7 +16,7 @@ struct named_backend {
 };
 
 struct seat_impl {
-	struct libseat *(*open_seat)(struct libseat_seat_listener *listener, void *data);
+	struct libseat *(*open_seat)(const struct libseat_seat_listener *listener, void *data);
 	int (*disable_seat)(struct libseat *seat);
 	int (*close_seat)(struct libseat *seat);
 	const char *(*seat_name)(struct libseat *seat);

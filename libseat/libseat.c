@@ -34,7 +34,7 @@ static const struct named_backend impls[] = {
 #error At least one backend must be enabled
 #endif
 
-struct libseat *libseat_open_seat(struct libseat_seat_listener *listener, void *data) {
+struct libseat *libseat_open_seat(const struct libseat_seat_listener *listener, void *data) {
 	if (listener == NULL || listener->enable_seat == NULL || listener->disable_seat == NULL) {
 		errno = EINVAL;
 		return NULL;

@@ -30,7 +30,7 @@
 
 struct backend_logind {
 	struct libseat base;
-	struct libseat_seat_listener *seat_listener;
+	const struct libseat_seat_listener *seat_listener;
 	void *seat_listener_data;
 
 	sd_bus *bus;
@@ -621,7 +621,7 @@ static int set_type(struct backend_logind *backend, const char *type) {
 	return ret;
 }
 
-static struct libseat *logind_open_seat(struct libseat_seat_listener *listener, void *data) {
+static struct libseat *logind_open_seat(const struct libseat_seat_listener *listener, void *data) {
 	struct backend_logind *backend = calloc(1, sizeof(struct backend_logind));
 	if (backend == NULL) {
 		return NULL;

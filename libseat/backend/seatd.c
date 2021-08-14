@@ -33,7 +33,7 @@ struct pending_event {
 struct backend_seatd {
 	struct libseat base;
 	struct connection connection;
-	struct libseat_seat_listener *seat_listener;
+	const struct libseat_seat_listener *seat_listener;
 	void *seat_listener_data;
 	struct linked_list pending_events;
 	bool error;
@@ -363,7 +363,7 @@ static int dispatch_and_execute(struct libseat *base, int timeout) {
 	return predispatch + postdispatch;
 }
 
-static struct libseat *_open_seat(struct libseat_seat_listener *listener, void *data, int fd) {
+static struct libseat *_open_seat(const struct libseat_seat_listener *listener, void *data, int fd) {
 	assert(listener != NULL);
 	assert(listener->enable_seat != NULL && listener->disable_seat != NULL);
 	struct backend_seatd *backend = calloc(1, sizeof(struct backend_seatd));
@@ -411,7 +411,7 @@ alloc_error:
 	return NULL;
 }
 
-static struct libseat *open_seat(struct libseat_seat_listener *listener, void *data) {
+static struct libseat *open_seat(const struct libseat_seat_listener *listener, void *data) {
 	int fd = seatd_connect();
 	if (fd == -1) {
 		return NULL;
