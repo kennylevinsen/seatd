@@ -599,7 +599,7 @@ static int set_deathsig(int signal) {
 #error Unsupported platform
 #endif
 
-static struct libseat *builtin_open_seat(struct libseat_seat_listener *listener, void *data) {
+static struct libseat *builtin_open_seat(const struct libseat_seat_listener *listener, void *data) {
 	int fds[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == -1) {
 		log_errorf("Could not create socket pair: %s", strerror(errno));
