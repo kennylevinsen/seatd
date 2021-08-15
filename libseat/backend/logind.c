@@ -245,10 +245,6 @@ static int dispatch_and_execute(struct libseat *base, int timeout) {
 
 static const char *seat_name(struct libseat *base) {
 	struct backend_logind *backend = backend_logind_from_libseat_backend(base);
-
-	if (backend->seat == NULL) {
-		return NULL;
-	}
 	return backend->seat;
 }
 
