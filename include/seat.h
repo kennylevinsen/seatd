@@ -19,7 +19,7 @@ struct seat_device {
 	struct linked_list link; // client::devices
 	int device_id;
 	int fd;
-	int ref_cnt;
+	bool master;
 	bool active;
 	char *path;
 	enum seat_device_type type;

@@ -231,17 +231,13 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 
 	int device_id = 1;
 	size_t device_count = 0;
-	struct seat_device *device = NULL;
+	bool exists = false;
 	for (struct linked_list *elem = client->devices.next; elem != &client->devices;
 	     elem = elem->next) {
 		struct seat_device *old_device = (struct seat_device *)elem;
-
 		if (strcmp(old_device->path, sanitized_path) == 0) {
-			old_device->ref_cnt++;
-			device = old_device;
-			goto done;
+			exists = true;
 		}
-
 		if (old_device->device_id >= device_id) {
 			device_id = old_device->device_id + 1;
 		}
@@ -260,10 +256,21 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		return NULL;
 	}
 
+	struct seat_device *device = calloc(1, sizeof(struct seat_device));
+	if (device == NULL) {
+		log_errorf("Allocation failed: %s", strerror(errno));
+		close(fd);
+		errno = ENOMEM;
+		return NULL;
+	}
+
 	switch (type) {
 	case SEAT_DEVICE_TYPE_DRM:
-		if (drm_set_master(fd) == -1) {
-			log_errorf("Could not make device fd drm master: %s", strerror(errno));
+		if (!exists) {
+			if (drm_set_master(fd) == -1) {
+				log_errorf("Could not make device fd drm master: %s", strerror(errno));
+			}
+			device->master = true;
 		}
 		break;
 	case SEAT_DEVICE_TYPE_EVDEV:
@@ -274,14 +281,6 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		abort();
 	}
 
-	device = calloc(1, sizeof(struct seat_device));
-	if (device == NULL) {
-		log_errorf("Allocation failed: %s", strerror(errno));
-		close(fd);
-		errno = ENOMEM;
-		return NULL;
-	}
-
 	device->path = strdup(sanitized_path);
 	if (device->path == NULL) {
 		log_errorf("Allocation failed: %s", strerror(errno));
@@ -290,14 +289,11 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		return NULL;
 	}
 
-	device->ref_cnt = 1;
 	device->type = type;
 	device->fd = fd;
 	device->device_id = device_id;
 	device->active = true;
 	linked_list_insert(&client->devices, &device->link);
-
-done:
 
 	return device;
 }
@@ -311,8 +307,12 @@ static int seat_deactivate_device(struct seat_device *seat_device) {
 	switch (seat_device->type) {
 	case SEAT_DEVICE_TYPE_DRM:
 		if (drm_drop_master(seat_device->fd) == -1) {
-			log_errorf("Could not revoke drm master on device fd: %s", strerror(errno));
-			return -1;
+			// We only care about errors if the device was supposed to be master
+			if (seat_device->master) {
+				log_errorf("Could not revoke drm master on device fd: %s",
+					   strerror(errno));
+				return -1;
+			}
 		}
 		break;
 	case SEAT_DEVICE_TYPE_EVDEV:
@@ -337,11 +337,6 @@ int seat_close_device(struct client *client, struct seat_device *seat_device) {
 	log_debugf("Closing device %s for client %d on %s", seat_device->path, client->session,
 		   client->seat->seat_name);
 
-	seat_device->ref_cnt--;
-	if (seat_device->ref_cnt > 0) {
-		return 0;
-	}
-
 	linked_list_remove(&seat_device->link);
 	if (seat_device->fd != -1) {
 		seat_deactivate_device(seat_device);
@@ -362,8 +357,9 @@ static int seat_activate_device(struct client *client, struct seat_device *seat_
 	}
 	switch (seat_device->type) {
 	case SEAT_DEVICE_TYPE_DRM:
-		if (drm_set_master(seat_device->fd) == -1) {
-			log_errorf("Could not make device fd drm master: %s", strerror(errno));
+		if (seat_device->master && drm_set_master(seat_device->fd) == -1) {
+			log_errorf("Could not make device fd drm master: %s",
+				   strerror(errno));
 		}
 		seat_device->active = true;
 		break;
