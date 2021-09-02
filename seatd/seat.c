@@ -129,7 +129,8 @@ int seat_add_client(struct seat *seat, struct client *client) {
 		return -1;
 	}
 
-	if (seat->vt_bound && seat->active_client != NULL) {
+	if (seat->vt_bound && seat->active_client != NULL &&
+	    seat->active_client->state != CLIENT_PENDING_DISABLE) {
 		log_error("Could not add client: seat is VT-bound and has an active client");
 		errno = EBUSY;
 		return -1;
@@ -147,6 +148,17 @@ int seat_add_client(struct seat *seat, struct client *client) {
 			log_error("Could not determine VT for client");
 			errno = EINVAL;
 			return -1;
+		}
+		if (seat->active_client != NULL) {
+			for (struct linked_list *elem = seat->clients.next; elem != &seat->clients;
+			     elem = elem->next) {
+				struct client *client = (struct client *)elem;
+				if (client->session == seat->cur_vt) {
+					log_error("Could not add client: seat is VT-bound and already has pending client");
+					errno = EBUSY;
+					return -1;
+				}
+			}
 		}
 		client->session = seat->cur_vt;
 	} else {
