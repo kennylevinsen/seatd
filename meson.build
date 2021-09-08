@@ -247,7 +247,7 @@ if scdoc.found()
 	scdoc_prog = find_program(scdoc.get_variable(pkgconfig: 'scdoc'), native: true)
 	mandir = get_option('mandir')
 
-	foreach src : ['seatd.1.scd']
+	foreach src : ['seatd.1.scd', 'seatd-launch.1.scd']
 		topic = src.split('.')[0]
 		section = src.split('.')[1]
 		output = '@0@.@1@'.format(topic, section)
