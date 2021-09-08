@@ -1,13 +1,12 @@
 #include <errno.h>
 #include <poll.h>
-#include <pwd.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -66,29 +65,13 @@ int main(int argc, char *argv[]) {
 		char pipebuf[8];
 		sprintf(pipebuf, "%d", fds[1]);
 
-		struct passwd *user = getpwuid(getuid());
-		if (!user) {
-			perror("getpwuid failed");
-			_exit(1);
-		}
-
-		// TODO: Make seatd accept the numeric UID
-		execlp("seatd", "seatd", "-n", pipebuf, "-u", user->pw_name, "-s", sockpath, NULL);
+		execlp("seatd", "seatd", "-n", pipebuf, "-s", sockpath, NULL);
 		perror("Could not start seatd");
 		_exit(1);
 	}
 	close(fds[1]);
 
-	// Drop privileges
-	if (setgid(getgid()) == -1) {
-		perror("Could not set gid to drop privileges");
-		goto error_seatd;
-	}
-	if (setuid(getuid()) == -1) {
-		perror("Could not set uid to drop privileges");
-		goto error_seatd;
-	}
-
+	// Wait for seatd to be ready
 	char buf[1] = {0};
 	while (true) {
 		pid_t p = waitpid(seatd_child, NULL, WNOHANG);
@@ -126,6 +109,29 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	close(fds[0]);
+
+	uid_t uid = getuid();
+	gid_t gid = getgid();
+
+	// Restrict access to the socket to just us
+	if (chown(sockpath, uid, gid) == -1) {
+		perror("Could not chown seatd socket");
+		goto error_seatd;
+	}
+	if (chmod(sockpath, 0700) == -1) {
+		perror("Could not chmod socket");
+		goto error;
+	}
+
+	// Drop privileges
+	if (setgid(gid) == -1) {
+		perror("Could not set gid to drop privileges");
+		goto error_seatd;
+	}
+	if (setuid(uid) == -1) {
+		perror("Could not set uid to drop privileges");
+		goto error_seatd;
+	}
 
 	pid_t child = fork();
 	if (child == -1) {
