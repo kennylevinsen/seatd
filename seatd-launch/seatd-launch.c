@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
 	}
 	if (chmod(sockpath, 0700) == -1) {
 		perror("Could not chmod socket");
-		goto error;
+		goto error_seatd;
 	}
 
 	// Drop privileges
