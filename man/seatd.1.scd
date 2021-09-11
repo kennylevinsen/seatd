@@ -52,7 +52,7 @@ client-side of the protocol.
 
 # SEE ALSO
 
-The libseat library, *<libseat.h>*
+The libseat library, *<libseat.h>*, *seatd-launch*(1)
 
 # AUTHORS
 

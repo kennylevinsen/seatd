@@ -40,7 +40,7 @@ superior to it for two reasons:
 
 # SEE ALSO
 
-The libseat library, *<libseat.h>*, *seatd(1)*
+The libseat library, *<libseat.h>*, *seatd*(1)
 
 # AUTHORS
 
