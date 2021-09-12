@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
 		goto error_seatd;
 	} else if (child == 0) {
 		setenv("SEATD_SOCK", sockpath, 1);
-		execv(argv[1], &argv[1]);
+		execvp(argv[1], &argv[1]);
 		perror("Could not start target");
 		_exit(1);
 	}
