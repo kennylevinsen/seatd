@@ -27,11 +27,11 @@ appropriately.  Once the specified command terminates, the seatd instance is
 also terminated.
 
 seatd requires root privileges to perform its tasks. This can be achieved
-through SUID of seatd-launch, *sudo(8)*/*doas(1)*, or by running seatd-launch
-as root. seatd-launch will drop privileges from the effective user to the real
-user before running the specified command. If the real user is root, this is
-simply a noop - only run directly as root if you intend for the specified
-command to run as root as well.
+through SUID of seatd-launch or by running seatd-launch as root. seatd-launch
+will drop privileges from the effective user to the real user before running
+the specified command. If the real user is root, this is simply a noop. You
+should only run seatd-launch as root if you intend for the specified command to
+run as root as well.
 
 seatd-launch serves a similar purpose to the libseat "builtin" backend, but is
 superior to it for two reasons:
