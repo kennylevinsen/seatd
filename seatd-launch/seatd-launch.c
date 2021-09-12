@@ -41,6 +41,12 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	if (optind >= argc) {
+		fprintf(stderr, "A command must be specified\n\n%s", usage);
+		return 1;
+	}
+	char **command = &argv[optind];
+
 	char sockbuf[256];
 	if (sockpath == NULL) {
 		sprintf(sockbuf, "/tmp/seatd.%d.sock", getpid());
@@ -139,7 +145,7 @@ int main(int argc, char *argv[]) {
 		goto error_seatd;
 	} else if (child == 0) {
 		setenv("SEATD_SOCK", sockpath, 1);
-		execvp(argv[1], &argv[1]);
+		execvp(command[0], command);
 		perror("Could not start target");
 		_exit(1);
 	}
