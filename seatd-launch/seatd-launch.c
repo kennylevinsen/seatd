@@ -166,8 +166,10 @@ int main(int argc, char *argv[]) {
 
 	if (WIFEXITED(status)) {
 		return WEXITSTATUS(status);
+	} else if (WIFSIGNALED(status)) {
+		return 128 + WTERMSIG(status);
 	} else {
-		return 1;
+		abort(); // unreachable
 	}
 
 error_seatd:

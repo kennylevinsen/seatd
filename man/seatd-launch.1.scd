@@ -38,6 +38,14 @@ superior to it for two reasons:
 . The specified command never runs as root
 . The standard seatd executable and libseat backend is used
 
+# EXIT STATUS
+
+seatd-launch exits with the status of its child. When the child terminates on
+a signal _N_, seatd-launch exits with the status 128 + _N_.
+
+If seatd-launch fails because of another error, it exits with a non-zero
+status.
+
 # SEE ALSO
 
 The libseat library, *<libseat.h>*, *seatd*(1)
