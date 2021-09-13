@@ -161,8 +161,12 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	unlink(sockpath);
-	kill(seatd_child, SIGTERM);
+	if (unlink(sockpath) != 0) {
+		perror("Could not unlink socket");
+	}
+	if (kill(seatd_child, SIGTERM) != 0) {
+		perror("Could not kill seatd");
+	}
 
 	if (WIFEXITED(status)) {
 		return WEXITSTATUS(status);
