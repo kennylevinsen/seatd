@@ -71,8 +71,16 @@ int main(int argc, char *argv[]) {
 		char pipebuf[16] = {0};
 		snprintf(pipebuf, sizeof pipebuf, "%d", fds[1]);
 
+		char *env[2] = {NULL, NULL};
+		char loglevelbuf[32] = {0};
+		char *cur_loglevel = getenv("SEATD_LOGLEVEL");
+		if (cur_loglevel != NULL) {
+			snprintf(loglevelbuf, sizeof loglevelbuf, "SEATD_LOGLEVEL=%s", cur_loglevel);
+			env[0] = loglevelbuf;
+		}
+
 		char *command[] = {"seatd", "-n", pipebuf, "-s", sockpath, NULL};
-		execv(SEATD_INSTALLPATH, command);
+		execve(SEATD_INSTALLPATH, command, env);
 		perror("Could not start seatd");
 		_exit(1);
 	}
