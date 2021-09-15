@@ -22,6 +22,8 @@ if defaultpath == ''
 	endif
 endif
 
+seatdpath = '@0@/@1@/seatd'.format(get_option('prefix'), get_option('bindir'))
+
 cc = meson.get_compiler('c')
 add_project_arguments(cc.get_supported_arguments(
 	[
@@ -41,7 +43,8 @@ add_project_arguments(cc.get_supported_arguments(
 		'-D_XOPEN_SOURCE=700',
 		'-D__BSD_VISIBLE',
 		'-DSEATD_VERSION="@0@"'.format(meson.project_version()),
-		'-DSEATD_DEFAULTPATH="@0@"'.format(defaultpath)
+		'-DSEATD_DEFAULTPATH="@0@"'.format(defaultpath),
+		'-DSEATD_INSTALLPATH="@0@"'.format(seatdpath),
 	]),
 	language: 'c',
 )

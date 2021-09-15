@@ -68,10 +68,11 @@ int main(int argc, char *argv[]) {
 	} else if (seatd_child == 0) {
 		close(fds[0]);
 
-		char pipebuf[8];
-		sprintf(pipebuf, "%d", fds[1]);
+		char pipebuf[16] = {0};
+		snprintf(pipebuf, sizeof pipebuf, "%d", fds[1]);
 
-		execlp("seatd", "seatd", "-n", pipebuf, "-s", sockpath, NULL);
+		char *command[] = {"seatd", "-n", pipebuf, "-s", sockpath, NULL};
+		execv(SEATD_INSTALLPATH, command);
 		perror("Could not start seatd");
 		_exit(1);
 	}
