@@ -12,6 +12,7 @@ tasks:
       meson -Db_sanitize=address -Dlibseat-logind=auto -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dexamples=enabled build seatd
    - build: |
       ninja -C build
+      sudo ninja -C build install
    - unittest: |
       ninja -C build test
    - scan-build: |

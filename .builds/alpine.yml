@@ -13,6 +13,7 @@ tasks:
       meson -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dlibseat-logind=disabled -Dexamples=enabled build seatd
    - build: |
       ninja -C build
+      sudo ninja -C build install
    - unittest: |
       ninja -C build test
    - scan-build: |

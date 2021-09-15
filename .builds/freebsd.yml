@@ -14,6 +14,7 @@ tasks:
       rm -rf build
       meson -Db_lundef=false -Db_sanitize=address -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dexamples=enabled -Dlibseat-logind=disabled build seatd
       ninja -C build
+      sudo ninja -C build install
       timeout -s KILL 30s ./seatd/.builds/smoketest-seatd.sh
    - smoketest-builtin: |
       timeout -s KILL 30s ./seatd/.builds/smoketest-builtin.sh

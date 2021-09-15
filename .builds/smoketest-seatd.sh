@@ -13,7 +13,6 @@ else
 fi
 
 export SEATD_LOGLEVEL=debug
-export PATH=$(pwd)/build:$PATH
 #
 # Run simpletest a few times
 #
@@ -21,7 +20,7 @@ cnt=0
 while [ "$cnt" -lt 2 ]
 do
    echo "Simpletest run $((cnt+1))"
-   if ! sudo -E seatd-launch ./build/simpletest $file
+   if ! sudo -E ./build/seatd-launch ./build/simpletest $file
    then
       echo "Simpletest failed"
       exit 1
