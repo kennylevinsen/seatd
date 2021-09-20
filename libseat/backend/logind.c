@@ -41,6 +41,7 @@ struct backend_logind {
 
 	bool active;
 	bool initial_setup;
+	bool awaiting_pong;
 	int has_drm;
 };
 
@@ -65,6 +66,48 @@ static int close_seat(struct libseat *base) {
 	release_control(backend);
 	destroy(backend);
 	return 0;
+}
+
+static int ping_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+	(void)ret_error;
+	struct backend_logind *session = userdata;
+	if (sd_bus_message_is_method_error(m, NULL)) {
+		const sd_bus_error *error = sd_bus_message_get_error(m);
+		log_errorf("Ping failed: %s: %s", error->name, error->message);
+		return -1;
+	}
+	session->awaiting_pong = false;
+	return 0;
+}
+
+static int send_ping(struct backend_logind *backend) {
+	int ret = sd_bus_call_method_async(backend->bus, NULL, "org.freedesktop.login1",
+					   "/org/freedesktop/login1", "org.freedesktop.DBus.Peer",
+					   "Ping", ping_handler, NULL, "");
+	if (ret < 0) {
+		return ret;
+	}
+	return 0;
+}
+
+static void check_pending_events(struct backend_logind *backend) {
+	if (sd_bus_get_events(backend->bus) <= 0) {
+		return;
+	}
+	if (backend->awaiting_pong) {
+		return;
+	}
+
+	// We have events pending execution, so a dispatch is required.
+	// However, we likely already drained our socket, so there will not be
+	// anything to read. Instead, send a ping request to logind so that the
+	// user will be woken up by its response.
+	int ret = send_ping(backend);
+	if (ret < 0) {
+		log_errorf("Could not send ping message: %s", strerror(-ret));
+		return;
+	}
+	backend->awaiting_pong = true;
 }
 
 static int open_device(struct libseat *base, const char *path, int *fd) {
@@ -113,9 +156,11 @@ static int open_device(struct libseat *base, const char *path, int *fd) {
 	}
 
 	*fd = tmpfd;
+
 out:
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(msg);
+	check_pending_events(session);
 	return tmpfd;
 }
 
@@ -150,7 +195,7 @@ static int close_device(struct libseat *base, int device_id) {
 
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(msg);
-
+	check_pending_events(session);
 	return ret < 0 ? -1 : 0;
 }
 
@@ -173,6 +218,7 @@ static int switch_session(struct libseat *base, int s) {
 
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(msg);
+	check_pending_events(session);
 	return ret < 0 ? -1 : 0;
 }
 
