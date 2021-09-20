@@ -309,6 +309,20 @@ error:
 	return client_send_error(client, errno);
 }
 
+static int handle_ping(struct client *client) {
+	struct proto_header header = {
+		.opcode = SERVER_PONG,
+		.size = 0,
+	};
+
+	if (connection_put(&client->connection, &header, sizeof header) == -1) {
+		log_errorf("Could not write response: %s", strerror(errno));
+		return -1;
+	}
+
+	return 0;
+}
+
 static int client_handle_opcode(struct client *client, uint16_t opcode, size_t size) {
 	int res = 0;
 	switch (opcode) {
@@ -370,6 +384,14 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 			return -1;
 		}
 		res = handle_disable_seat(client);
+		break;
+	}
+	case CLIENT_PING: {
+		if (size != 0) {
+			log_error("Protocol error: invalid ping message");
+			return -1;
+		}
+		res = handle_ping(client);
 		break;
 	}
 	default:

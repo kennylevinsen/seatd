@@ -36,6 +36,7 @@ struct backend_seatd {
 	const struct libseat_seat_listener *seat_listener;
 	void *seat_listener_data;
 	struct linked_list pending_events;
+	bool awaiting_pong;
 	bool error;
 
 	char seat_name[MAX_SEAT_LEN];
@@ -243,6 +244,12 @@ static int dispatch_pending(struct backend_seatd *backend, int *opcode) {
 	while (connection_get(&backend->connection, &header, sizeof header) != -1) {
 		packets++;
 		switch (header.opcode) {
+		case SERVER_PONG:
+			// We care about whether or not the answer has been
+			// read from the connection, so handle it here instead
+			// of pushing it to the pending event list.
+			backend->awaiting_pong = false;
+			break;
 		case SERVER_DISABLE_SEAT:
 		case SERVER_ENABLE_SEAT:
 			if (queue_event(backend, header.opcode) == -1) {
@@ -450,6 +457,36 @@ static const char *seat_name(struct libseat *base) {
 	return backend->seat_name;
 }
 
+static int send_ping(struct backend_seatd *backend) {
+	struct proto_header header = {
+		.opcode = CLIENT_PING,
+		.size = 0,
+	};
+	if (conn_put(backend, &header, sizeof header) == -1 || conn_flush(backend) == -1) {
+		return -1;
+	}
+	return 0;
+}
+
+static void check_pending_events(struct backend_seatd *backend) {
+	if (linked_list_empty(&backend->pending_events)) {
+		return;
+	}
+	if (backend->awaiting_pong) {
+		return;
+	}
+
+	// We have events pending execution, so a dispatch is required.
+	// However, we likely already drained our socket, so there will not be
+	// anything to read. Instead, send a ping request to seatd, so that the
+	// user will be woken up by its response.
+	if (send_ping(backend) == -1) {
+		log_errorf("Could not send ping request: %s", strerror(errno));
+		return;
+	}
+	backend->awaiting_pong = true;
+}
+
 static int open_device(struct libseat *base, const char *path, int *fd) {
 	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
 	if (backend->error) {
@@ -481,11 +518,11 @@ static int open_device(struct libseat *base, const char *path, int *fd) {
 		goto error;
 	}
 
-	execute_events(backend);
+	check_pending_events(backend);
 	return rmsg.device_id;
 
 error:
-	execute_events(backend);
+	check_pending_events(backend);
 	return -1;
 }
 
@@ -516,11 +553,11 @@ static int close_device(struct libseat *base, int device_id) {
 		goto error;
 	}
 
-	execute_events(backend);
+	check_pending_events(backend);
 	return 0;
 
 error:
-	execute_events(backend);
+	check_pending_events(backend);
 	return -1;
 }
 
