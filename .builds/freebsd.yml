@@ -15,6 +15,6 @@ tasks:
       meson -Db_lundef=false -Db_sanitize=address -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dexamples=enabled -Dlibseat-logind=disabled build seatd
       ninja -C build
       sudo ninja -C build install
-      timeout -s KILL 30s ./seatd/.builds/smoketest-seatd.sh
+      timeout -s KILL 30s sudo SEATD_LOGLEVEL=debug ./build/seatd-launch ./build/simpletest /dev/input/event0
    - smoketest-builtin: |
-      timeout -s KILL 30s ./seatd/.builds/smoketest-builtin.sh
+      timeout -s KILL 30s sudo LIBSEAT_BACKEND=builtin ./build/simpletest /dev/input/event0
