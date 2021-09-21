@@ -2,7 +2,7 @@
 IndentWidth: 8
 TabWidth: 8
 ContinuationIndentWidth: 8
-UseTab: Always
+UseTab: ForContinuationAndIndentation
 ColumnLimit: 100
 
 AlignConsecutiveMacros: true

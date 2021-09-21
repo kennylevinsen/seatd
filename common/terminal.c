@@ -13,14 +13,14 @@
 #include <linux/vt.h>
 #define K_ENABLE  K_UNICODE
 #define K_DISABLE K_OFF
-#define FRSIG	  0
+#define FRSIG     0
 #elif defined(__FreeBSD__)
 #include <sys/consio.h>
 #include <sys/kbio.h>
 #include <termios.h>
 #define K_ENABLE  K_XLATE
 #define K_DISABLE K_RAW
-#define FRSIG	  SIGIO
+#define FRSIG     SIGIO
 #else
 #error Unsupported platform
 #endif

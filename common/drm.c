@@ -9,8 +9,8 @@
 #include "drm.h"
 
 // From libdrm
-#define DRM_IOCTL_BASE	      'd'
-#define DRM_IO(nr)	      _IO(DRM_IOCTL_BASE, nr)
+#define DRM_IOCTL_BASE        'd'
+#define DRM_IO(nr)            _IO(DRM_IOCTL_BASE, nr)
 #define DRM_IOCTL_SET_MASTER  DRM_IO(0x1e)
 #define DRM_IOCTL_DROP_MASTER DRM_IO(0x1f)
 
