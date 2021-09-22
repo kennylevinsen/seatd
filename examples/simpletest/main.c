@@ -43,7 +43,11 @@ int main(int argc, char *argv[]) {
 
 	while (active == 0) {
 		fprintf(stderr, "waiting for activation...\n");
-		libseat_dispatch(backend, -1);
+		if (libseat_dispatch(backend, -1) == -1) {
+			libseat_close_seat(backend);
+			fprintf(stderr, "libseat_dispatch() failed: %s\n", strerror(errno));
+			return -1;
+		}
 	}
 	fprintf(stderr, "active!\n");
 
