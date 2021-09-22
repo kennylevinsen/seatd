@@ -22,3 +22,9 @@ tasks:
       timeout -s KILL 30s sudo SEATD_LOGLEVEL=debug ./build/seatd-launch ./build/simpletest /dev/input/event0
    - smoketest-builtin: |
       timeout -s KILL 30s sudo LIBSEAT_BACKEND=builtin ./build/simpletest /dev/input/event0
+   - smoketest-logind: |
+      # Turn off systemd-logind and patch our session to be tied to seat0 on VT 6
+      sudo systemctl stop systemd-logind
+      echo -e "ACTIVE=$XDG_SESSION_ID\nACTIVE_UID=$UID\nSESSIONS=$XDG_SESSION_ID\nUIDS=$UID\n" | sudo tee -a /run/systemd/seats/seat0 > /dev/null
+      echo -e "SEAT=seat0\nVTNR=6\n" | sudo tee -a /run/systemd/sessions/$XDG_SESSION_ID > /dev/null
+      timeout -s KILL 30s sudo LIBSEAT_BACKEND=logind ./build/simpletest /dev/input/event0
