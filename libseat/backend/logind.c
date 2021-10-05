@@ -83,7 +83,7 @@ static int ping_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_err
 static int send_ping(struct backend_logind *backend) {
 	int ret = sd_bus_call_method_async(backend->bus, NULL, "org.freedesktop.login1",
 					   "/org/freedesktop/login1", "org.freedesktop.DBus.Peer",
-					   "Ping", ping_handler, NULL, "");
+					   "Ping", ping_handler, backend, "");
 	if (ret < 0) {
 		return ret;
 	}
