@@ -129,6 +129,12 @@ int server_add_client(struct server *server, int fd) {
 	}
 
 	struct client *client = client_create(server, fd);
+	if (client == NULL) {
+		log_errorf("Could not create client: %s", strerror(errno));
+		close(fd);
+		return -1;
+	}
+
 	client->event_source =
 		poller_add_fd(&server->poller, fd, EVENT_READABLE, client_handle_connection, client);
 	if (client->event_source == NULL) {
