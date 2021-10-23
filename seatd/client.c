@@ -70,7 +70,7 @@ static int get_peer(int fd, pid_t *pid, uid_t *uid, gid_t *gid) {
 	*gid = cred.cr_ngroups > 0 ? cred.cr_groups[0] : (gid_t)-1;
 	return 0;
 #else
-	return -1;
+#error Unsupported platform
 #endif
 }
 
