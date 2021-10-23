@@ -123,8 +123,8 @@ static int set_nonblock(int fd) {
 
 int server_add_client(struct server *server, int fd) {
 	if (set_nonblock(fd) != 0) {
-		close(fd);
 		log_errorf("Could not prepare new client socket: %s", strerror(errno));
+		close(fd);
 		return -1;
 	}
 
