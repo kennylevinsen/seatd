@@ -146,7 +146,7 @@ int server_handle_connection(int fd, uint32_t mask, void *data) {
 	if (mask & (EVENT_ERROR | EVENT_HANGUP)) {
 		shutdown(fd, SHUT_RDWR);
 		server->running = false;
-		log_errorf("Server socket received an error: %s", strerror(errno));
+		log_error("Server socket received an error");
 		return -1;
 	}
 
