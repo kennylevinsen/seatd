@@ -3,7 +3,7 @@ project(
 	'c',
 	version: '0.6.3',
 	license: 'MIT',
-	meson_version: '>=0.56.0',
+	meson_version: '>=0.60.0',
 	default_options: [
 		'c_std=c11',
 		'warning_level=3',
@@ -126,26 +126,19 @@ if with_seatd
 endif
 
 logind = disabler()
-logind_provider = ''
 if get_option('libseat-logind') != 'disabled'
 	if get_option('libseat-logind') == 'auto' and get_option('auto_features').disabled()
 		# Disable logind
 	elif get_option('libseat-logind') == 'auto'
 		assert(get_option('auto_features').auto(), '-Dlibseat-logind must be set to systemd or elogind since auto_features != auto')
-		foreach logind_provider : ['elogind', 'systemd']
-			logind = dependency('lib@0@'.format(logind_provider), required: false)
-			if logind.found()
-				break
-			endif
-		endforeach
+		logind = dependency(['libelogind', 'libsystemd'], required: false)
 	else
-		logind_provider = get_option('libseat-logind')
-		logind = dependency('lib@0@'.format(logind_provider))
+		logind = dependency('lib@0@'.format(get_option('libseat-logind')))
 	endif
 
 	if logind.found()
 		add_project_arguments('-DLOGIND_ENABLED=1', language: 'c')
-		add_project_arguments('-DHAVE_@0@=1'.format(logind_provider.to_upper()), language: 'c')
+		add_project_arguments('-DHAVE_@0@=1'.format(logind.name().to_upper()), language: 'c')
 		private_files += [
 			'libseat/backend/logind.c',
 			'common/drm.c',
@@ -278,7 +271,7 @@ endif
 summary({
 	'libseat-seatd': with_seatd,
 	'libseat-builtin': with_builtin,
-	'libseat-systemd': logind.found() and logind_provider == 'systemd',
-	'libseat-elogind': logind.found() and logind_provider == 'elogind',
+	'libseat-systemd': logind.found() and logind.name() == 'libsystemd',
+	'libseat-elogind': logind.found() and logind.name() == 'libelogind',
 	'server': with_server,
 }, bool_yn: true)

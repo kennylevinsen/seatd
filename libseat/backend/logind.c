@@ -13,10 +13,10 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#if defined(HAVE_ELOGIND)
+#if defined(HAVE_LIBELOGIND)
 #include <elogind/sd-bus.h>
 #include <elogind/sd-login.h>
-#elif defined(HAVE_SYSTEMD)
+#elif defined(HAVE_LIBSYSTEMD)
 #include <systemd/sd-bus.h>
 #include <systemd/sd-login.h>
 #else
