@@ -247,7 +247,6 @@ else
 endif
 
 if scdoc.found()
-	scdoc_prog = find_program(scdoc.get_variable(pkgconfig: 'scdoc'), native: true)
 	mandir = get_option('mandir')
 
 	foreach src : ['seatd.1.scd', 'seatd-launch.1.scd']
@@ -259,9 +258,9 @@ if scdoc.found()
 			output,
 			input: 'man/' + src,
 			output: output,
-			command: [
-				'sh', '-c', '@0@ < @INPUT@ > @1@'.format(scdoc_prog.full_path(), output)
-			],
+			command: scdoc.get_variable(pkgconfig: 'scdoc'),
+			feed: true,
+			capture: true,
 			install: true,
 			install_dir: '@0@/man@1@'.format(mandir, section)
 		)
