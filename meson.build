@@ -200,6 +200,8 @@ libseat = declare_dependency(
 	variables: libseat_vars,
 )
 
+meson.override_dependency('libseat', libseat)
+
 if with_server
 	executable(
 		'seatd',
