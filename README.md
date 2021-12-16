@@ -43,4 +43,4 @@ Instead of giving user shell developers more work, libseat aims to make supporti
 
 ## How to discuss
 
-Go to #kennylevinsen @ irc.libera.chat to discuss, or use [~kennylevinsen/seatd-devel@lists.sr.ht](https://lists.sr.ht/~kennylevinsen/seatd-devel).
+Go to [#kennylevinsen @ irc.libera.chat](ircs://irc.libera.chat/#kennylevinsen) to discuss, or use [~kennylevinsen/seatd-devel@lists.sr.ht](https://lists.sr.ht/~kennylevinsen/seatd-devel).
