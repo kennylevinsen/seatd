@@ -109,7 +109,7 @@ static struct libseat *noop_open_seat(const struct libseat_seat_listener *listen
 		return NULL;
 	}
 
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, backend->sockets) != 0) {
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, backend->sockets) != 0) {
 		log_errorf("socketpair() failed: %s", strerror(errno));
 		free(backend);
 		return NULL;

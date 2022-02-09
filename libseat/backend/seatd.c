@@ -42,30 +42,14 @@ struct backend_seatd {
 	char seat_name[MAX_SEAT_LEN];
 };
 
-static int set_nonblock(int fd) {
-	int flags;
-	if ((flags = fcntl(fd, F_GETFD)) == -1 || fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == -1) {
-		return -1;
-	}
-	if ((flags = fcntl(fd, F_GETFL)) == -1 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-		return -1;
-	}
-	return 0;
-}
-
 static int seatd_connect(void) {
 	union {
 		struct sockaddr_un unix;
 		struct sockaddr generic;
 	} addr = {{0}};
-	int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 	if (fd == -1) {
 		log_errorf("Could not create socket: %s", strerror(errno));
-		return -1;
-	}
-	if (set_nonblock(fd) == -1) {
-		log_errorf("Could not make socket non-blocking: %s", strerror(errno));
-		close(fd);
 		return -1;
 	}
 	const char *path = getenv("SEATD_SOCK");
@@ -638,7 +622,7 @@ static int set_deathsig(int signal) {
 
 static struct libseat *builtin_open_seat(const struct libseat_seat_listener *listener, void *data) {
 	int fds[2];
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == -1) {
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, fds) == -1) {
 		log_errorf("Could not create socket pair: %s", strerror(errno));
 		return NULL;
 	}
