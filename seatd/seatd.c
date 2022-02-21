@@ -145,22 +145,21 @@ int main(int argc, char *argv[]) {
 
 	struct server server = {0};
 	if (server_init(&server) == -1) {
-		log_errorf("server_create failed: %s", strerror(errno));
+		log_errorf("server_init failed: %s", strerror(errno));
 		return 1;
 	}
 
+	int ret = 1;
 	int socket_fd = open_socket(socket_path, uid, gid);
 	if (socket_fd == -1) {
 		log_error("Could not create server socket");
-		server_finish(&server);
-		return 1;
+		goto error_server;
 	}
 	if (poller_add_fd(&server.poller, socket_fd, EVENT_READABLE, server_handle_connection,
 			  &server) == NULL) {
 		log_errorf("Could not add socket to poller: %s", strerror(errno));
 		close(socket_fd);
-		server_finish(&server);
-		return 1;
+		goto error_socket;
 	}
 
 	log_info("seatd started");
@@ -175,12 +174,16 @@ int main(int argc, char *argv[]) {
 	while (server.running) {
 		if (poller_poll(&server.poller) == -1) {
 			log_errorf("Poller failed: %s", strerror(errno));
-			return 1;
+			goto error_socket;
 		}
 	}
 
-	server_finish(&server);
+	ret = 0;
+
+error_socket:
 	unlink(socket_path);
+error_server:
+	server_finish(&server);
 	log_info("seatd stopped");
-	return 0;
+	return ret;
 }
