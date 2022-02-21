@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
 	const char *usage = "Usage: seatd [options]\n"
 			    "\n"
 			    "  -h		Show this help message\n"
-			    "  -n <fd>          FD to notify readiness on\n"
+			    "  -n <fd>	FD to notify readiness on\n"
 			    "  -u <user>	User to own the seatd socket\n"
 			    "  -g <group>	Group to own the seatd socket\n"
 			    "  -s <path>	Where to create the seatd socket\n"
