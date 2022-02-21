@@ -42,8 +42,8 @@ int main(int argc, char *argv[]) {
 	}
 	char **command = &argv[optind];
 
-	char sockpath[256];
-	sprintf(sockpath, "/tmp/seatd.%d.sock", getpid());
+	char sockpath[32];
+	snprintf(sockpath, sizeof sockpath, "/tmp/seatd.%d.sock", getpid());
 
 	int fds[2];
 	if (pipe(fds) == -1) {
