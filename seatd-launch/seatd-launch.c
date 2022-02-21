@@ -11,8 +11,6 @@
 #include <unistd.h>
 
 int main(int argc, char *argv[]) {
-	(void)argc;
-
 	const char *usage = "Usage: seatd-launch [options] [--] command\n"
 			    "\n"
 			    "  -h	Show this help message\n"
@@ -45,21 +43,22 @@ int main(int argc, char *argv[]) {
 	char sockpath[32];
 	snprintf(sockpath, sizeof sockpath, "/tmp/seatd.%d.sock", getpid());
 
-	int fds[2];
-	if (pipe(fds) == -1) {
+	int readiness_pipe[2];
+	if (pipe(readiness_pipe) == -1) {
 		perror("Could not create pipe");
 		goto error;
 	}
 
+	// Start seatd
 	pid_t seatd_child = fork();
 	if (seatd_child == -1) {
 		perror("Could not fork seatd process");
 		goto error;
 	} else if (seatd_child == 0) {
-		close(fds[0]);
+		close(readiness_pipe[0]);
 
 		char pipebuf[16] = {0};
-		snprintf(pipebuf, sizeof pipebuf, "%d", fds[1]);
+		snprintf(pipebuf, sizeof pipebuf, "%d", readiness_pipe[1]);
 
 		char *env[2] = {NULL, NULL};
 		char loglevelbuf[32] = {0};
@@ -74,7 +73,7 @@ int main(int argc, char *argv[]) {
 		perror("Could not start seatd");
 		_exit(1);
 	}
-	close(fds[1]);
+	close(readiness_pipe[1]);
 
 	// Wait for seatd to be ready
 	char buf[1] = {0};
@@ -89,7 +88,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		struct pollfd fd = {
-			.fd = fds[0],
+			.fd = readiness_pipe[0],
 			.events = POLLIN,
 		};
 
@@ -104,7 +103,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		if (fd.revents & POLLIN) {
-			ssize_t n = read(fds[0], buf, 1);
+			ssize_t n = read(readiness_pipe[0], buf, 1);
 			if (n == -1 && errno != EINTR) {
 				perror("Could not read from pipe");
 				goto error_seatd;
@@ -113,7 +112,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
-	close(fds[0]);
+	close(readiness_pipe[0]);
 
 	uid_t uid = getuid();
 	gid_t gid = getgid();
