@@ -53,8 +53,6 @@ int main(int argc, char *argv[]) {
 		sockpath = sockbuf;
 	}
 
-	unlink(sockpath);
-
 	int fds[2];
 	if (pipe(fds) == -1) {
 		perror("Could not create pipe");
@@ -170,9 +168,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (unlink(sockpath) != 0) {
-		perror("Could not unlink socket");
-	}
 	if (kill(seatd_child, SIGTERM) != 0) {
 		perror("Could not kill seatd");
 	}
@@ -186,7 +181,6 @@ int main(int argc, char *argv[]) {
 	}
 
 error_seatd:
-	unlink(sockpath);
 	kill(seatd_child, SIGTERM);
 error:
 	return 1;
