@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
 	int c;
 	int uid = -1, gid = -1;
 	int readiness = -1;
-	const char *socket_path = getenv("SEATD_SOCK");
+	const char *socket_path = SEATD_DEFAULTPATH;
 	while ((c = getopt(argc, argv, "vhn:s:g:u:")) != -1) {
 		switch (c) {
 		case 'n':
@@ -131,11 +131,14 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (socket_path == NULL) {
-		socket_path = SEATD_DEFAULTPATH;
-		struct stat st;
-		if (stat(socket_path, &st) == 0) {
-			log_info("Removing leftover seatd socket");
+	struct stat st;
+	if (stat(socket_path, &st) == 0) {
+		if (!S_ISSOCK(st.st_mode)) {
+			log_errorf("Non-socket file found at socket path %s, refusing to start",
+				   socket_path);
+			return 1;
+		} else {
+			log_infof("Removing leftover socket at %s", socket_path);
 			unlink(socket_path);
 		}
 	}
