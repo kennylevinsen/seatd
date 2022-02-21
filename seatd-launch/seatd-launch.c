@@ -15,18 +15,13 @@ int main(int argc, char *argv[]) {
 
 	const char *usage = "Usage: seatd-launch [options] [--] command\n"
 			    "\n"
-			    "  -h		Show this help message\n"
-			    "  -s <path>	Where to create the seatd socket\n"
-			    "  -v		Show the version number\n"
+			    "  -h	Show this help message\n"
+			    "  -v	Show the version number\n"
 			    "\n";
 
 	int c;
-	char *sockpath = NULL;
-	while ((c = getopt(argc, argv, "vhs:")) != -1) {
+	while ((c = getopt(argc, argv, "vh")) != -1) {
 		switch (c) {
-		case 's':
-			sockpath = optarg;
-			break;
 		case 'v':
 			printf("seatd-launch version %s\n", SEATD_VERSION);
 			return 0;
@@ -47,11 +42,8 @@ int main(int argc, char *argv[]) {
 	}
 	char **command = &argv[optind];
 
-	char sockbuf[256];
-	if (sockpath == NULL) {
-		sprintf(sockbuf, "/tmp/seatd.%d.sock", getpid());
-		sockpath = sockbuf;
-	}
+	char sockpath[256];
+	sprintf(sockpath, "/tmp/seatd.%d.sock", getpid());
 
 	unlink(sockpath);
 
