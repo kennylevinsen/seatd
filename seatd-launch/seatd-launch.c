@@ -13,13 +13,19 @@
 int main(int argc, char *argv[]) {
 	const char *usage = "Usage: seatd-launch [options] [--] command\n"
 			    "\n"
-			    "  -h	Show this help message\n"
-			    "  -v	Show the version number\n"
+			    "  -l <loglevel>	Log-level to pass to seatd\n"
+			    "  -h		Show this help message\n"
+			    "  -v		Show the version number\n"
 			    "\n";
 
 	int c;
-	while ((c = getopt(argc, argv, "vh")) != -1) {
+	char loglevel[16] = "info";
+	while ((c = getopt(argc, argv, "vhl:")) != -1) {
 		switch (c) {
+		case 'l':
+			strncpy(loglevel, optarg, sizeof loglevel);
+			loglevel[sizeof loglevel - 1] = '\0';
+			break;
 		case 'v':
 			printf("seatd-launch version %s\n", SEATD_VERSION);
 			return 0;
@@ -60,15 +66,8 @@ int main(int argc, char *argv[]) {
 		char pipebuf[16] = {0};
 		snprintf(pipebuf, sizeof pipebuf, "%d", readiness_pipe[1]);
 
-		char *env[2] = {NULL, NULL};
-		char loglevelbuf[32] = {0};
-		char *cur_loglevel = getenv("SEATD_LOGLEVEL");
-		if (cur_loglevel != NULL) {
-			snprintf(loglevelbuf, sizeof loglevelbuf, "SEATD_LOGLEVEL=%s", cur_loglevel);
-			env[0] = loglevelbuf;
-		}
-
-		char *command[] = {"seatd", "-n", pipebuf, "-s", sockpath, NULL};
+		char *env[1] = {NULL};
+		char *command[] = {"seatd", "-n", pipebuf, "-s", sockpath, "-l", loglevel, NULL};
 		execve(SEATD_INSTALLPATH, command, env);
 		perror("Could not start seatd");
 		_exit(1);

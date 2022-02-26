@@ -57,20 +57,6 @@ error:
 }
 
 int main(int argc, char *argv[]) {
-	char *loglevel = getenv("SEATD_LOGLEVEL");
-	enum libseat_log_level level = LIBSEAT_LOG_LEVEL_ERROR;
-	if (loglevel != NULL) {
-		if (strcmp(loglevel, "silent") == 0) {
-			level = LIBSEAT_LOG_LEVEL_SILENT;
-		} else if (strcmp(loglevel, "info") == 0) {
-			level = LIBSEAT_LOG_LEVEL_INFO;
-		} else if (strcmp(loglevel, "debug") == 0) {
-			level = LIBSEAT_LOG_LEVEL_DEBUG;
-		}
-	}
-	log_init();
-	libseat_set_log_level(level);
-
 	const char *usage = "Usage: seatd [options]\n"
 			    "\n"
 			    "  -h		Show this help message\n"
@@ -78,14 +64,16 @@ int main(int argc, char *argv[]) {
 			    "  -u <user>	User to own the seatd socket\n"
 			    "  -g <group>	Group to own the seatd socket\n"
 			    "  -s <path>	Where to create the seatd socket\n"
+			    "  -l <loglevel>	Log-level, one of debug, info, error or silent\n"
 			    "  -v		Show the version number\n"
 			    "\n";
 
 	int c;
 	int uid = -1, gid = -1;
 	int readiness = -1;
+	enum libseat_log_level level = LIBSEAT_LOG_LEVEL_ERROR;
 	const char *socket_path = SEATD_DEFAULTPATH;
-	while ((c = getopt(argc, argv, "vhn:s:g:u:")) != -1) {
+	while ((c = getopt(argc, argv, "vhn:s:g:u:l:")) != -1) {
 		switch (c) {
 		case 'n':
 			readiness = atoi(optarg);
@@ -117,6 +105,20 @@ int main(int argc, char *argv[]) {
 			}
 			break;
 		}
+		case 'l':
+			if (strcmp(optarg, "debug") == 0) {
+				level = LIBSEAT_LOG_LEVEL_DEBUG;
+			} else if (strcmp(optarg, "info") == 0) {
+				level = LIBSEAT_LOG_LEVEL_INFO;
+			} else if (strcmp(optarg, "error") == 0) {
+				level = LIBSEAT_LOG_LEVEL_ERROR;
+			} else if (strcmp(optarg, "silent") == 0) {
+				level = LIBSEAT_LOG_LEVEL_SILENT;
+			} else {
+				fprintf(stderr, "Invalid loglevel: %s\n", optarg);
+				return 1;
+			}
+			break;
 		case 'v':
 			printf("seatd version %s\n", SEATD_VERSION);
 			return 0;
@@ -130,6 +132,9 @@ int main(int argc, char *argv[]) {
 			abort();
 		}
 	}
+
+	log_init();
+	libseat_set_log_level(level);
 
 	struct stat st;
 	if (stat(socket_path, &st) == 0) {

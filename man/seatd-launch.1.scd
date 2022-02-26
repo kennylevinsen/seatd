@@ -10,6 +10,10 @@ seatd-launch - Start a process with its own seatd instance
 
 # OPTIONS
 
+*-l <loglevel>*
+	Log-level to pass to seatd. See *seatd*(1) for information about
+	available log-levels.
+
 *-h*
 	Show help message and quit.
 
