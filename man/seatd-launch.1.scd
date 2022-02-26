@@ -17,9 +17,6 @@ seatd-launch - Start a process with its own seatd instance
 *-h*
 	Show help message and quit.
 
-*-s <path>*
-	Where to create the seatd socket. Defaults to a unique file path.
-
 *-v*
 	Show the version number and quit.
 

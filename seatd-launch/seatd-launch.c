@@ -46,9 +46,6 @@ int main(int argc, char *argv[]) {
 	}
 	char **command = &argv[optind];
 
-	char sockpath[32];
-	snprintf(sockpath, sizeof sockpath, "/tmp/seatd.%d.sock", getpid());
-
 	int readiness_pipe[2];
 	if (pipe(readiness_pipe) == -1) {
 		perror("Could not create pipe");
@@ -67,7 +64,7 @@ int main(int argc, char *argv[]) {
 		snprintf(pipebuf, sizeof pipebuf, "%d", readiness_pipe[1]);
 
 		char *env[1] = {NULL};
-		char *command[] = {"seatd", "-n", pipebuf, "-s", sockpath, "-l", loglevel, NULL};
+		char *command[] = {"seatd", "-n", pipebuf, "-l", loglevel, "-z", NULL};
 		execve(SEATD_INSTALLPATH, command, env);
 		perror("Could not start seatd");
 		_exit(1);
@@ -117,11 +114,11 @@ int main(int argc, char *argv[]) {
 	gid_t gid = getgid();
 
 	// Restrict access to the socket to just us
-	if (chown(sockpath, uid, gid) == -1) {
+	if (chown(SEATD_DEFAULTPATH, uid, gid) == -1) {
 		perror("Could not chown seatd socket");
 		goto error_seatd;
 	}
-	if (chmod(sockpath, 0700) == -1) {
+	if (chmod(SEATD_DEFAULTPATH, 0700) == -1) {
 		perror("Could not chmod socket");
 		goto error_seatd;
 	}
@@ -141,7 +138,7 @@ int main(int argc, char *argv[]) {
 		perror("Could not fork target process");
 		goto error_seatd;
 	} else if (child == 0) {
-		setenv("SEATD_SOCK", sockpath, 1);
+		setenv("SEATD_SOCK", SEATD_DEFAULTPATH, 1);
 		execvp(command[0], command);
 		perror("Could not start target");
 		_exit(1);

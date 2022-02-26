@@ -24,9 +24,6 @@ seatd - A seat management daemon
 *-g <group>*
 	Group to own the seatd socket.
 
-*-s <path>*
-	Where to create the seatd socket. Defaults to `/run/seatd.sock`.
-
 *-l <loglevel>*
 	Log-level to use. Must be one of debug, info, error or silent. Defaults
 	to error.
@@ -41,6 +38,8 @@ such as displays and input devices in a multi-session, multi-seat environment.
 
 seatd operates over a UNIX domain socket, with *libseat* providing the
 client-side of the protocol.
+
+The location of the socket for seatd is set at compile-time.
 
 # SEE ALSO
 

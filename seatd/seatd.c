@@ -40,13 +40,13 @@ static int open_socket(const char *path, int uid, int gid) {
 		goto error;
 	}
 	if (uid != -1 || gid != -1) {
+		if (chmod(path, 0770) == -1) {
+			log_errorf("Could not chmod socket: %s", strerror(errno));
+			goto error;
+		}
 		if (chown(path, uid, gid) == -1) {
 			log_errorf("Could not chown socket to uid %d, gid %d: %s", uid, gid,
 				   strerror(errno));
-			goto error;
-		}
-		if (chmod(path, 0770) == -1) {
-			log_errorf("Could not chmod socket: %s", strerror(errno));
 			goto error;
 		}
 	}
@@ -63,7 +63,6 @@ int main(int argc, char *argv[]) {
 			    "  -n <fd>	FD to notify readiness on\n"
 			    "  -u <user>	User to own the seatd socket\n"
 			    "  -g <group>	Group to own the seatd socket\n"
-			    "  -s <path>	Where to create the seatd socket\n"
 			    "  -l <loglevel>	Log-level, one of debug, info, error or silent\n"
 			    "  -v		Show the version number\n"
 			    "\n";
@@ -71,9 +70,10 @@ int main(int argc, char *argv[]) {
 	int c;
 	int uid = -1, gid = -1;
 	int readiness = -1;
+	bool unlink_existing_socket = true;
+	bool chown_socket = true;
 	enum libseat_log_level level = LIBSEAT_LOG_LEVEL_ERROR;
-	const char *socket_path = SEATD_DEFAULTPATH;
-	while ((c = getopt(argc, argv, "vhn:s:g:u:l:")) != -1) {
+	while ((c = getopt(argc, argv, "vhn:g:u:l:z")) != -1) {
 		switch (c) {
 		case 'n':
 			readiness = atoi(optarg);
@@ -82,10 +82,11 @@ int main(int argc, char *argv[]) {
 				return 1;
 			}
 			break;
-		case 's':
-			socket_path = optarg;
-			break;
 		case 'u': {
+			if (!chown_socket) {
+				fprintf(stderr, "-u/-g and -z are mutually exclusive\n");
+				return 1;
+			}
 			struct passwd *pw = getpwnam(optarg);
 			if (pw == NULL) {
 				fprintf(stderr, "Could not find user by name '%s'.\n", optarg);
@@ -96,6 +97,10 @@ int main(int argc, char *argv[]) {
 			break;
 		}
 		case 'g': {
+			if (!chown_socket) {
+				fprintf(stderr, "-u/-g and -z are mutually exclusive\n");
+				return 1;
+			}
 			struct group *gr = getgrnam(optarg);
 			if (gr == NULL) {
 				fprintf(stderr, "Could not find group by name '%s'.\n", optarg);
@@ -119,6 +124,17 @@ int main(int argc, char *argv[]) {
 				return 1;
 			}
 			break;
+		case 'z':
+			// Running under seatd-launch. We do not unlink files
+			// to protect against multiple instances, and
+			// seatd-launch takes care of ownership.
+			if (uid != -1 || gid != -1) {
+				fprintf(stderr, "-u/-g and -z are mutually exclusive\n");
+				return 1;
+			}
+			unlink_existing_socket = false;
+			chown_socket = false;
+			break;
 		case 'v':
 			printf("seatd version %s\n", SEATD_VERSION);
 			return 0;
@@ -137,14 +153,19 @@ int main(int argc, char *argv[]) {
 	libseat_set_log_level(level);
 
 	struct stat st;
-	if (stat(socket_path, &st) == 0) {
+	if (lstat(SEATD_DEFAULTPATH, &st) == 0) {
 		if (!S_ISSOCK(st.st_mode)) {
 			log_errorf("Non-socket file found at socket path %s, refusing to start",
-				   socket_path);
+				   SEATD_DEFAULTPATH);
+			return 1;
+		} else if (!unlink_existing_socket) {
+			log_errorf("Socket file found at socket path %s, refusing to start",
+				   SEATD_DEFAULTPATH);
 			return 1;
 		} else {
-			log_infof("Removing leftover socket at %s", socket_path);
-			if (unlink(socket_path) == -1) {
+			// We only do this if the socket path is not user specified
+			log_infof("Removing leftover socket at %s", SEATD_DEFAULTPATH);
+			if (unlink(SEATD_DEFAULTPATH) == -1) {
 				log_errorf("Could not remove leftover socket: %s", strerror(errno));
 				return 1;
 			}
@@ -158,7 +179,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	int ret = 1;
-	int socket_fd = open_socket(socket_path, uid, gid);
+	int socket_fd = open_socket(SEATD_DEFAULTPATH, uid, gid);
 	if (socket_fd == -1) {
 		log_error("Could not create server socket");
 		goto error_server;
@@ -189,7 +210,7 @@ int main(int argc, char *argv[]) {
 	ret = 0;
 
 error_socket:
-	if (unlink(socket_path) == -1) {
+	if (unlink(SEATD_DEFAULTPATH) == -1) {
 		log_errorf("Could not remove socket: %s", strerror(errno));
 	}
 error_server:
