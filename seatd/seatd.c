@@ -144,7 +144,10 @@ int main(int argc, char *argv[]) {
 			return 1;
 		} else {
 			log_infof("Removing leftover socket at %s", socket_path);
-			unlink(socket_path);
+			if (unlink(socket_path) == -1) {
+				log_errorf("Could not remove leftover socket: %s", strerror(errno));
+				return 1;
+			}
 		}
 	}
 
@@ -186,7 +189,9 @@ int main(int argc, char *argv[]) {
 	ret = 0;
 
 error_socket:
-	unlink(socket_path);
+	if (unlink(socket_path) == -1) {
+		log_errorf("Could not remove socket: %s", strerror(errno));
+	}
 error_server:
 	server_finish(&server);
 	log_info("seatd stopped");
