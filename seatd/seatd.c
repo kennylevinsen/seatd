@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 	int readiness = -1;
 	bool unlink_existing_socket = true;
 	bool chown_socket = true;
-	enum libseat_log_level level = LIBSEAT_LOG_LEVEL_ERROR;
+	enum libseat_log_level level = LIBSEAT_LOG_LEVEL_INFO;
 	while ((c = getopt(argc, argv, "vhn:g:u:l:z")) != -1) {
 		switch (c) {
 		case 'n':
