@@ -51,6 +51,12 @@ add_project_arguments(cc.get_supported_arguments(
 		'-Wno-unknown-warning-option',
 		'-Wno-unused-command-line-argument',
 		'-Wvla',
+	]),
+	language: 'c',
+)
+
+add_project_arguments(cc.get_supported_link_arguments(
+	[
 		'-Wl,--exclude-libs=ALL',
 	]),
 	language: 'c',
@@ -66,7 +72,7 @@ endif
 
 # Hacks
 source_root = meson.current_source_dir().split('/')
-build_root = meson.build_root().split('/')
+build_root = meson.global_build_root().split('/')
 relative_dir_parts = []
 i = 0
 in_prefix = true
