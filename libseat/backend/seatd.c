@@ -634,6 +634,7 @@ static struct libseat *builtin_open_seat(const struct libseat_seat_listener *lis
 		close(fds[1]);
 		return NULL;
 	} else if (pid == 0) {
+		close(fds[1]);
 		int fd = fds[0];
 		int res = 0;
 		struct server server = {0};
@@ -662,6 +663,7 @@ static struct libseat *builtin_open_seat(const struct libseat_seat_listener *lis
 		close(fd);
 		exit(res);
 	} else {
+		close(fds[0]);
 		int fd = fds[1];
 		return _open_seat(listener, data, fd);
 	}
