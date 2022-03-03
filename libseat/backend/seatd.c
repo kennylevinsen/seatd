@@ -600,25 +600,6 @@ const struct seat_impl seatd_impl = {
 };
 
 #ifdef BUILTIN_ENABLED
-#include <signal.h>
-
-static int set_deathsig(int signal);
-
-#if defined(__linux__)
-#include <sys/prctl.h>
-
-static int set_deathsig(int signal) {
-	return prctl(PR_SET_PDEATHSIG, signal);
-}
-#elif defined(__FreeBSD__)
-#include <sys/procctl.h>
-
-static int set_deathsig(int signal) {
-	return procctl(P_PID, 0, PROC_PDEATHSIG_CTL, &signal);
-}
-#else
-#error Unsupported platform
-#endif
 
 static struct libseat *builtin_open_seat(const struct libseat_seat_listener *listener, void *data) {
 	int fds[2];
@@ -649,7 +630,7 @@ static struct libseat *builtin_open_seat(const struct libseat_seat_listener *lis
 			res = 1;
 			goto server_error;
 		}
-		set_deathsig(SIGTERM);
+		log_info("Started embedded seatd");
 		while (server.running) {
 			if (poller_poll(&server.poller) == -1) {
 				log_errorf("Could not poll server socket: %s", strerror(errno));
@@ -661,6 +642,7 @@ static struct libseat *builtin_open_seat(const struct libseat_seat_listener *lis
 		server_finish(&server);
 	error:
 		close(fd);
+		log_info("Stopped embedded seatd");
 		exit(res);
 	} else {
 		close(fds[0]);
