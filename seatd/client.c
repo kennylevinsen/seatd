@@ -81,6 +81,13 @@ struct client *client_create(struct server *server, int client_fd) {
 
 void client_destroy(struct client *client) {
 	assert(client);
+
+#ifdef LIBSEAT
+	// The built-in backend version of seatd should terminate once its only
+	// client disconnects.
+	client->server->running = false;
+#endif
+
 	client->server = NULL;
 	if (client->connection.fd != -1) {
 		close(client->connection.fd);
