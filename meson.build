@@ -121,8 +121,10 @@ if with_seatd or with_builtin
 	private_files += 'libseat/backend/seatd.c'
 endif
 
+libseat_c_args = ['-DLIBSEAT=1']
+
 if with_seatd
-	add_project_arguments('-DSEATD_ENABLED=1', language: 'c')
+	libseat_c_args += '-DSEATD_ENABLED=1'
 endif
 
 logind = disabler()
@@ -137,8 +139,8 @@ if get_option('libseat-logind') != 'disabled'
 	endif
 
 	if logind.found()
-		add_project_arguments('-DLOGIND_ENABLED=1', language: 'c')
-		add_project_arguments('-DHAVE_@0@=1'.format(logind.name().to_upper()), language: 'c')
+		libseat_c_args += '-DLOGIND_ENABLED=1'
+		libseat_c_args += '-DHAVE_@0@=1'.format(logind.name().to_upper())
 		private_files += [
 			'libseat/backend/logind.c',
 			'common/drm.c',
@@ -152,7 +154,7 @@ realtime = meson.get_compiler('c').find_library('rt')
 private_deps += realtime
 
 if with_builtin
-	add_project_arguments('-DBUILTIN_ENABLED=1', language: 'c')
+	libseat_c_args += '-DBUILTIN_ENABLED=1'
 	private_files += server_files
 endif
 
@@ -161,6 +163,7 @@ private_lib = static_library(
 	private_files,
 	dependencies: private_deps,
 	include_directories: [include_directories('.', 'include')],
+	c_args: libseat_c_args,
 )
 
 symbols_file = 'libseat/libseat.syms'
@@ -174,6 +177,7 @@ lib = library(
 	install: true,
 	link_args: symbols_flag,
 	link_depends: symbols_file,
+	c_args: libseat_c_args,
 )
 
 install_headers('include/libseat.h')
