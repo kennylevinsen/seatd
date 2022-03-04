@@ -30,6 +30,7 @@ add_project_arguments(
 	[
 		'-D_XOPEN_SOURCE=700',
 		'-D__BSD_VISIBLE',
+		'-D_NETBSD_SOURCE',
 		'-DSEATD_VERSION="@0@"'.format(meson.project_version()),
 		'-DSEATD_DEFAULTPATH="@0@"'.format(defaultpath),
 		'-DSEATD_INSTALLPATH="@0@"'.format(seatdpath),

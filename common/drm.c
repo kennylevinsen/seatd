@@ -6,6 +6,11 @@
 #include <sys/sysmacros.h>
 #endif
 
+#if defined(__NetBSD__)
+#include <stdlib.h>
+#include <sys/stat.h>
+#endif
+
 #include "drm.h"
 
 // From libdrm
@@ -39,6 +44,16 @@ int path_is_drm(const char *path) {
 	static const char prefix[] = "/dev/drm/";
 	static const int prefixlen = STRLEN(prefix);
 	return strncmp(prefix, path, prefixlen) == 0;
+}
+#elif defined(__NetBSD__)
+int path_is_drm(const char *path) {
+	static const char prefix[] = "/dev/dri/";
+	static const int prefixlen = STRLEN(prefix);
+	return strncmp(prefix, path, prefixlen) == 0;
+}
+
+int dev_is_drm(dev_t device) {
+	return major(device) == getdevmajor("drm", S_IFCHR);
 }
 #else
 #error Unsupported platform

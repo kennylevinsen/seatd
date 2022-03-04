@@ -21,6 +21,11 @@
 #define K_ENABLE  K_XLATE
 #define K_DISABLE K_RAW
 #define FRSIG     SIGIO
+#elif defined(__NetBSD__)
+#include <dev/wscons/wsdisplay_usl_io.h>
+#define K_ENABLE  K_XLATE
+#define K_DISABLE K_RAW
+#define FRSIG     0 // unimplemented
 #else
 #error Unsupported platform
 #endif
@@ -134,6 +139,14 @@ static int get_tty_path(int tty, char path[static TTYPATHLEN]) {
 	}
 	return 0;
 }
+#elif defined(__NetBSD__)
+static int get_tty_path(int tty, char path[static TTYPATHLEN]) {
+	assert(tty >= 0);
+	if (snprintf(path, TTYPATHLEN, "/dev/ttyE%d", tty) == -1) {
+		return -1;
+	}
+	return 0;
+}
 #else
 #error Unsupported platform
 #endif
@@ -153,7 +166,7 @@ int terminal_open(int vt) {
 }
 
 int terminal_current_vt(int fd) {
-#if defined(__linux__)
+#if defined(__linux__) || defined(__NetBSD__)
 	struct vt_stat st;
 	int res = ioctl(fd, VT_GETSTATE, &st);
 	close(fd);
@@ -231,12 +244,13 @@ int terminal_ack_acquire(int fd) {
 
 int terminal_set_keyboard(int fd, bool enable) {
 	log_debugf("Setting KD keyboard state to %d", enable);
+#if defined(__linux__) || defined(__NetBSD__)
 	if (ioctl(fd, KDSKBMODE, enable ? K_ENABLE : K_DISABLE) == -1) {
 		log_errorf("Could not set KD keyboard mode to %s: %s",
 			   enable ? "enabled" : "disabled", strerror(errno));
 		return -1;
 	}
-#if defined(__FreeBSD__)
+#elif defined(__FreeBSD__)
 	struct termios tios;
 	if (tcgetattr(fd, &tios) == -1) {
 		log_errorf("Could not set get terminal mode: %s", strerror(errno));

@@ -14,6 +14,10 @@
 #include <sys/un.h>
 #endif
 
+#if defined(__NetBSD__)
+#include <sys/un.h>
+#endif
+
 #include "client.h"
 #include "linked_list.h"
 #include "log.h"
@@ -33,6 +37,23 @@ static int get_peer(int fd, pid_t *pid, uid_t *uid, gid_t *gid) {
 	*pid = cred.pid;
 	*uid = cred.uid;
 	*gid = cred.gid;
+	return 0;
+#elif defined(__NetBSD__)
+	struct unpcbid cred;
+	socklen_t len = sizeof cred;
+	if (getsockopt(fd, 0, LOCAL_PEEREID, &cred, &len) == -1) {
+		// assume builtin backend
+		if (errno == EINVAL) {
+			*pid = getpid();
+			*uid = getuid();
+			*gid = getgid();
+			return 0;
+		}
+		return -1;
+	}
+	*pid = cred.unp_pid;
+	*uid = cred.unp_euid;
+	*gid = cred.unp_egid;
 	return 0;
 #elif defined(__FreeBSD__)
 	struct xucred cred;
@@ -468,7 +489,13 @@ int client_handle_connection(int fd, uint32_t mask, void *data) {
 			goto fail;
 		}
 		if (len == 0) {
+// https://man.netbsd.org/poll.2
+// Sockets produce POLLIN rather than POLLHUP when the remote end is closed.
+#if defined(__NetBSD__)
+			log_info("Client disconnected");
+#else
 			log_error("Could not read client connection: zero-length read");
+#endif
 			goto fail;
 		}
 
