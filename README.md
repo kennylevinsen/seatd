@@ -2,7 +2,7 @@
 
 A minimal seat management daemon, and a universal seat management library.
 
-Currently supports Linux and FreeBSD.
+Currently supports Linux and FreeBSD, and has experimental NetBSD support.
 
 ## What is seat management?
 
