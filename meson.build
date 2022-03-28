@@ -178,7 +178,7 @@ symbols_flag = '-Wl,--version-script,@0@/@1@'.format(meson.current_source_dir(),
 lib = library(
 	'seat', # This results in the library being called 'libseat'
 	[ 'libseat/libseat.c', 'libseat/backend/noop.c' ],
-	soversion: libseat_soversion,
+	soversion: '@0@'.format(libseat_soversion),
 	link_with: private_lib,
 	include_directories: [include_directories('.', 'include')],
 	install: true,
