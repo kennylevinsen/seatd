@@ -12,9 +12,9 @@
 
 #if defined(__NetBSD__)
 int path_is_wscons(const char *path) {
-	const char *wskbd = "/dev/wskbd";
-	const char *wsmouse = "/dev/wsmouse";
-	const char *wsmux = "/dev/wsmux";
+	static const char wskbd[] = "/dev/wskbd";
+	static const char wsmouse[] = "/dev/wsmouse";
+	static const char wsmux[] = "/dev/wsmux";
 	return strncmp(path, wskbd, STRLEN(wskbd)) == 0 ||
 	       strncmp(path, wsmouse, STRLEN(wsmouse)) == 0 ||
 	       strncmp(path, wsmux, STRLEN(wsmouse)) == 0;
