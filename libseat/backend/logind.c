@@ -28,6 +28,14 @@
 #include "libseat.h"
 #include "log.h"
 
+static int dev_major_is_drm(unsigned int dev_major) {
+	return dev_major == 226;
+}
+
+static int dev_is_drm(dev_t device) {
+	return dev_major_is_drm(major(device));
+}
+
 struct backend_logind {
 	struct libseat base;
 	const struct libseat_seat_listener *seat_listener;
@@ -387,7 +395,7 @@ static int pause_device(sd_bus_message *msg, void *userdata, sd_bus_error *ret_e
 		return 0;
 	}
 
-	if (dev_is_drm(makedev(major, minor)) && strcmp(type, "gone") != 0) {
+	if (dev_major_is_drm(major) && strcmp(type, "gone") != 0) {
 		log_debugf("DRM device paused: %s", type);
 		assert(session->has_drm > 0);
 		set_active(session, false);
@@ -419,7 +427,7 @@ static int resume_device(sd_bus_message *msg, void *userdata, sd_bus_error *ret_
 		return 0;
 	}
 
-	if (dev_is_drm(makedev(major, minor))) {
+	if (dev_major_is_drm(major)) {
 		log_debug("DRM device resumed");
 		assert(session->has_drm > 0);
 		set_active(session, true);
