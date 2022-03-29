@@ -26,6 +26,11 @@
 #define K_ENABLE  K_XLATE
 #define K_DISABLE K_RAW
 #define FRSIG     0 // unimplemented
+#elif defined(__OpenBSD__)
+#include <dev/wscons/wsdisplay_usl_io.h>
+#define K_ENABLE  K_XLATE
+#define K_DISABLE K_RAW
+#define FRSIG     SIGIO
 #else
 #error Unsupported platform
 #endif
@@ -139,6 +144,14 @@ static int get_tty_path(int tty, char path[static TTYPATHLEN]) {
 	}
 	return 0;
 }
+#elif defined(__OpenBSD__)
+static int get_tty_path(int tty, char path[static TTYPATHLEN]) {
+	assert(tty >= 0);
+	if (snprintf(path, TTYPATHLEN, "/dev/ttyC%d", tty) == -1) {
+		return -1;
+	}
+	return 0;
+}
 #elif defined(__NetBSD__)
 static int get_tty_path(int tty, char path[static TTYPATHLEN]) {
 	assert(tty >= 0);
@@ -165,8 +178,8 @@ int terminal_open(int vt) {
 	return fd;
 }
 
-int terminal_current_vt(int fd) {
 #if defined(__linux__) || defined(__NetBSD__)
+int terminal_current_vt(int fd) {
 	struct vt_stat st;
 	int res = ioctl(fd, VT_GETSTATE, &st);
 	close(fd);
@@ -175,7 +188,9 @@ int terminal_current_vt(int fd) {
 		return -1;
 	}
 	return st.v_active;
-#elif defined(__FreeBSD__)
+}
+#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+int terminal_current_vt(int fd) {
 	int vt;
 	int res = ioctl(fd, VT_GETACTIVE, &vt);
 	close(fd);
@@ -189,10 +204,10 @@ int terminal_current_vt(int fd) {
 		return -1;
 	}
 	return vt;
+}
 #else
 #error Unsupported platform
 #endif
-}
 
 int terminal_set_process_switching(int fd, bool enable) {
 	log_debugf("Setting process switching to %d", enable);

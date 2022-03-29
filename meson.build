@@ -158,8 +158,12 @@ if get_option('libseat-logind') != 'disabled'
 endif
 
 # needed for cross-compilation
-realtime = meson.get_compiler('c').find_library('rt')
-private_deps += realtime
+server_deps = []
+if target_machine.system() != 'openbsd'
+	realtime = meson.get_compiler('c').find_library('rt')
+	server_deps += realtime
+	private_deps += realtime
+endif
 
 if with_builtin
 	libseat_c_args += '-DBUILTIN_ENABLED=1'
@@ -220,14 +224,14 @@ if with_server
 		[ server_files, 'seatd/seatd.c' ],
 		include_directories: [include_directories('.', 'include')],
 		install: true,
-		dependencies: [realtime],
+		dependencies: [server_deps],
 	)
 	executable(
 		'seatd-launch',
 		[ 'seatd-launch/seatd-launch.c' ],
 		include_directories: [include_directories('.', 'include')],
 		install: true,
-		dependencies: [realtime],
+		dependencies: [],
 	)
 endif
 

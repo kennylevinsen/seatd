@@ -26,7 +26,7 @@ int path_is_drm(const char *path) {
 	static const int prefixlen = STRLEN(prefix);
 	return strncmp(prefix, path, prefixlen) == 0;
 }
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__OpenBSD__)
 int path_is_drm(const char *path) {
 	static const char prefix[] = "/dev/drm/";
 	static const int prefixlen = STRLEN(prefix);

@@ -128,19 +128,18 @@ static void test_poller_single_signal(void) {
 	test_assert(poller_init(&poller) == 0);
 
 	struct test_signal evd;
-	struct event_source_signal *ev =
-		poller_add_signal(&poller, SIGRTMIN, test_signal_event, &evd);
+	struct event_source_signal *ev = poller_add_signal(&poller, SIGUSR1, test_signal_event, &evd);
 	test_assert(ev != NULL);
 
 	evd.signal = 0;
-	test_assert(kill(getpid(), SIGRTMIN) == 0);
+	test_assert(kill(getpid(), SIGUSR1) == 0);
 	test_assert(poller_poll(&poller) == 0);
-	test_assert(evd.signal == SIGRTMIN);
+	test_assert(evd.signal == SIGUSR1);
 
 	evd.signal = 0;
-	test_assert(kill(getpid(), SIGRTMIN) == 0);
+	test_assert(kill(getpid(), SIGUSR1) == 0);
 	test_assert(poller_poll(&poller) == 0);
-	test_assert(evd.signal == SIGRTMIN);
+	test_assert(evd.signal == SIGUSR1);
 
 	poller_finish(&poller);
 }
@@ -151,30 +150,30 @@ static void test_poller_multi_signal(void) {
 
 	struct test_signal evd1, evd2;
 	struct event_source_signal *ev1 =
-		poller_add_signal(&poller, SIGRTMIN, test_signal_event, &evd1);
+		poller_add_signal(&poller, SIGUSR1, test_signal_event, &evd1);
 	struct event_source_signal *ev2 =
-		poller_add_signal(&poller, SIGRTMIN + 1, test_signal_event, &evd2);
+		poller_add_signal(&poller, SIGUSR1 + 1, test_signal_event, &evd2);
 	test_assert(ev1 != NULL);
 	test_assert(ev2 != NULL);
 
 	evd1.signal = evd2.signal = 0;
-	test_assert(kill(getpid(), SIGRTMIN) == 0);
+	test_assert(kill(getpid(), SIGUSR1) == 0);
 	test_assert(poller_poll(&poller) == 0);
-	test_assert(evd1.signal == SIGRTMIN);
+	test_assert(evd1.signal == SIGUSR1);
 	test_assert(evd2.signal == 0);
 
 	evd1.signal = evd2.signal = 0;
-	test_assert(kill(getpid(), SIGRTMIN + 1) == 0);
+	test_assert(kill(getpid(), SIGUSR1 + 1) == 0);
 	test_assert(poller_poll(&poller) == 0);
 	test_assert(evd1.signal == 0);
-	test_assert(evd2.signal == SIGRTMIN + 1);
+	test_assert(evd2.signal == SIGUSR1 + 1);
 
 	evd1.signal = evd2.signal = 0;
-	test_assert(kill(getpid(), SIGRTMIN) == 0);
-	test_assert(kill(getpid(), SIGRTMIN + 1) == 0);
+	test_assert(kill(getpid(), SIGUSR1) == 0);
+	test_assert(kill(getpid(), SIGUSR1 + 1) == 0);
 	test_assert(poller_poll(&poller) == 0);
-	test_assert(evd1.signal == SIGRTMIN);
-	test_assert(evd2.signal == SIGRTMIN + 1);
+	test_assert(evd1.signal == SIGUSR1);
+	test_assert(evd2.signal == SIGUSR1 + 1);
 
 	poller_finish(&poller);
 }

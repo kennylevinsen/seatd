@@ -25,7 +25,7 @@ int path_is_evdev(const char *path) {
 int evdev_revoke(int fd) {
 	return ioctl(fd, EVIOCREVOKE, NULL);
 }
-#elif defined(__NetBSD__)
+#elif defined(__NetBSD__) || defined(__OpenBSD__)
 int path_is_evdev(const char *path) {
 	(void)path;
 	return 0;
