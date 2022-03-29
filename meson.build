@@ -3,7 +3,7 @@ project(
 	'c',
 	version: '0.7.0',
 	license: 'MIT',
-	meson_version: '>=0.60.0',
+	meson_version: '>=0.59.0',
 	default_options: [
 		'c_std=c11',
 		'warning_level=3',
@@ -29,8 +29,9 @@ cc = meson.get_compiler('c')
 add_project_arguments(
 	[
 		'-D_XOPEN_SOURCE=700',
-		'-D__BSD_VISIBLE',
-		'-D_NETBSD_SOURCE',
+		'-D_BSD_SOURCE=1',
+		'-D__BSD_VISIBLE=1',
+		'-D_NETBSD_SOURCE=1',
 		'-DSEATD_VERSION="@0@"'.format(meson.project_version()),
 		'-DSEATD_DEFAULTPATH="@0@"'.format(defaultpath),
 		'-DSEATD_INSTALLPATH="@0@"'.format(seatdpath),
