@@ -9,11 +9,6 @@
 #include <sys/sysmacros.h>
 #elif defined(__FreeBSD__)
 #include <dev/evdev/input.h>
-#elif defined(__NetBSD__)
-#include <stdlib.h>
-#include <sys/stat.h>
-#else
-#error Unsupported platform
 #endif
 
 #include "evdev.h"
@@ -30,28 +25,15 @@ int path_is_evdev(const char *path) {
 int evdev_revoke(int fd) {
 	return ioctl(fd, EVIOCREVOKE, NULL);
 }
-#endif
-
-#if defined(__linux__)
-int dev_is_evdev(dev_t device) {
-	return major(device) == INPUT_MAJOR;
-}
 #elif defined(__NetBSD__)
-int dev_is_evdev(dev_t device) {
-	return major(device) == getdevmajor("wskbd", S_IFCHR) ||
-	       major(device) == getdevmajor("wsmouse", S_IFCHR) ||
-	       major(device) == getdevmajor("wsmux", S_IFCHR);
-}
 int path_is_evdev(const char *path) {
-	const char *wskbd = "/dev/wskbd";
-	const char *wsmouse = "/dev/wsmouse";
-	const char *wsmux = "/dev/wsmux";
-	return strncmp(path, wskbd, STRLEN(wskbd)) == 0 ||
-	       strncmp(path, wsmouse, STRLEN(wsmouse)) == 0 ||
-	       strncmp(path, wsmux, STRLEN(wsmouse)) == 0;
+	(void)path;
+	return 0;
 }
 int evdev_revoke(int fd) {
 	(void)fd;
 	return 0;
 }
+#else
+#error Unsupported platform
 #endif

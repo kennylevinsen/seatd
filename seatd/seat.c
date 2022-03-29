@@ -17,6 +17,7 @@
 #include "protocol.h"
 #include "seat.h"
 #include "terminal.h"
+#include "wscons.h"
 
 static int seat_close_client(struct client *client);
 static int vt_close(int vt);
@@ -235,6 +236,8 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		type = SEAT_DEVICE_TYPE_EVDEV;
 	} else if (path_is_drm(sanitized_path)) {
 		type = SEAT_DEVICE_TYPE_DRM;
+	} else if (path_is_wscons(sanitized_path)) {
+		type = SEAT_DEVICE_TYPE_WSCONS;
 	} else {
 		log_errorf("%s is not a supported device type ", sanitized_path);
 		errno = ENOENT;
@@ -279,6 +282,9 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		}
 		break;
 	case SEAT_DEVICE_TYPE_EVDEV:
+		// Nothing to do here
+		break;
+	case SEAT_DEVICE_TYPE_WSCONS:
 		// Nothing to do here
 		break;
 	default:
@@ -333,6 +339,9 @@ static int seat_deactivate_device(struct seat_device *seat_device) {
 			return -1;
 		}
 		break;
+	case SEAT_DEVICE_TYPE_WSCONS:
+		// Nothing to do here
+		break;
 	default:
 		log_error("Invalid seat device type");
 		abort();
@@ -382,6 +391,9 @@ static int seat_activate_device(struct client *client, struct seat_device *seat_
 	case SEAT_DEVICE_TYPE_EVDEV:
 		errno = EINVAL;
 		return -1;
+	case SEAT_DEVICE_TYPE_WSCONS:
+		// Nothing to do here
+		break;
 	default:
 		log_error("Invalid seat device type");
 		abort();

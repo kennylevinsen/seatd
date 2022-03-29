@@ -114,6 +114,7 @@ server_files = [
 	'common/connection.c',
 	'common/evdev.c',
 	'common/drm.c',
+	'common/wscons.c',
 	'seatd/poller.c',
 	'seatd/seat.c',
 	'seatd/client.c',
