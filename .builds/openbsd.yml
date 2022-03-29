@@ -1,0 +1,17 @@
+image: openbsd/latest
+packages:
+   - meson
+sources:
+   - https://git.sr.ht/~kennylevinsen/seatd
+tasks:
+   - prepare: |
+      meson -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dlibseat-logind=disabled -Dexamples=enabled build seatd
+   - build: |
+      ninja -C build
+   - unittest: |
+      ninja -C build test
+   - smoketest: |
+      doas ninja -C build install
+      timeout -s SIGKILL 30s doas ./build/seatd-launch -l debug ./build/simpletest /dev/wskbd
+   - smoketest-builtin: |
+      timeout -s SIGKILL 30s doas ./build/simpletest /dev/wskbd
