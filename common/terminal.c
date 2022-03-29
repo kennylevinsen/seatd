@@ -244,13 +244,12 @@ int terminal_ack_acquire(int fd) {
 
 int terminal_set_keyboard(int fd, bool enable) {
 	log_debugf("Setting KD keyboard state to %d", enable);
-#if defined(__linux__) || defined(__NetBSD__)
 	if (ioctl(fd, KDSKBMODE, enable ? K_ENABLE : K_DISABLE) == -1) {
 		log_errorf("Could not set KD keyboard mode to %s: %s",
 			   enable ? "enabled" : "disabled", strerror(errno));
 		return -1;
 	}
-#elif defined(__FreeBSD__)
+#if defined(__FreeBSD__)
 	struct termios tios;
 	if (tcgetattr(fd, &tios) == -1) {
 		log_errorf("Could not set get terminal mode: %s", strerror(errno));
