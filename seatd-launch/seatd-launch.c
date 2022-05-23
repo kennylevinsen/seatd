@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
 			printf("%s", usage);
 			return 0;
 		case '?':
-			fprintf(stderr, "Try '%s -h' for more information.\n", argv[0]);
+			fprintf(stderr, "Try 'seatd-launch -h' for more information.\n");
 			return 1;
 		default:
 			abort();
