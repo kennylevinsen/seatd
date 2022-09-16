@@ -22,6 +22,35 @@ static int server_handle_vt_acq(int signal, void *data);
 static int server_handle_vt_rel(int signal, void *data);
 static int server_handle_kill(int signal, void *data);
 
+static int seat0_vtbound(void) {
+	char *vtenv = getenv("SEATD_VTBOUND");
+	if (vtenv == NULL) {
+		if (strcmp(vtenv, "1")) {
+			return 1;
+		} else if (strcmp(vtenv, "0")) {
+			return 0;
+		} else {
+			log_errorf("invalid value passed to SEATD_VTBOUND: %s", vtenv);
+			return -1;
+		}
+	}
+	int termfd = terminal_open(0);
+	if (termfd == -1) {
+		if (errno == ENOENT || errno == ENXIO || errno == ENODEV) {
+			log_info("could not open first tty, assuming VTs are not available");
+			return 0;
+		}
+		return -1;
+	}
+	int cur_vt = terminal_current_vt(termfd);
+	close(termfd);
+	if (cur_vt == -1) {
+		log_info("could not get current VT, assuming VTs are not available");
+		return 0;
+	}
+	return 1;
+}
+
 int server_init(struct server *server) {
 	if (poller_init(&server->poller) == -1) {
 		log_errorf("could not initialize poller: %s", strerror(errno));
@@ -39,10 +68,14 @@ int server_init(struct server *server) {
 		return -1;
 	}
 
-	char *vtenv = getenv("SEATD_VTBOUND");
+	int vtbound = seat0_vtbound();
+	if (vtbound == -1) {
+		server_finish(server);
+		return -1;
+	}
 
 	// TODO: create more seats:
-	struct seat *seat = seat_create("seat0", vtenv == NULL || strcmp(vtenv, "1") == 0);
+	struct seat *seat = seat_create("seat0", vtbound);
 	if (seat == NULL) {
 		server_finish(server);
 		return -1;
