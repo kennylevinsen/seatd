@@ -41,6 +41,11 @@ client-side of the protocol.
 
 The location of the socket for seatd is set at compile-time.
 
+# ENVIRONMENT
+
+*SEATD_VTBOUND*
+	If set to "0", the seat will not be bound to a VT.
+
 # SEE ALSO
 
 The libseat library, *<libseat.h>*, *seatd-launch*(1)
