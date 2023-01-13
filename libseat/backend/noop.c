@@ -115,6 +115,7 @@ static struct libseat *noop_open_seat(const struct libseat_seat_listener *listen
 		return NULL;
 	}
 
+	backend->initial_setup = true;
 	backend->seat_listener = listener;
 	backend->seat_listener_data = data;
 	backend->base.impl = &noop_impl;
