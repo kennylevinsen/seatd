@@ -22,7 +22,7 @@ if defaultpath == ''
 	endif
 endif
 
-seatdpath = '@0@/@1@/seatd'.format(get_option('prefix'), get_option('bindir'))
+seatdpath = get_option('prefix') / get_option('bindir') / 'seatd'
 
 cc = meson.get_compiler('c')
 
