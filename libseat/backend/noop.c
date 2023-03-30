@@ -46,7 +46,7 @@ static int disable_seat(struct libseat *base) {
 
 static const char *seat_name(struct libseat *base) {
 	(void)base;
-	return "noop";
+	return "seat0";
 }
 
 static int open_device(struct libseat *base, const char *path, int *fd) {
