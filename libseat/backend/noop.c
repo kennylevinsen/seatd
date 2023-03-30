@@ -52,7 +52,7 @@ static const char *seat_name(struct libseat *base) {
 static int open_device(struct libseat *base, const char *path, int *fd) {
 	(void)base;
 
-	int tmpfd = open(path, O_RDWR | O_CLOEXEC);
+	int tmpfd = open(path, O_RDWR | O_NOCTTY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
 	if (tmpfd < 0) {
 		log_errorf("Failed to open device: %s", strerror(errno));
 		return -1;
