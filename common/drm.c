@@ -10,7 +10,8 @@
 #define DRM_IOCTL_SET_MASTER  DRM_IO(0x1e)
 #define DRM_IOCTL_DROP_MASTER DRM_IO(0x1f)
 
-#define STRLEN(s) ((sizeof(s) / sizeof(s[0])) - 1)
+#define STRLEN(s)                 ((sizeof(s) / sizeof(s[0])) - 1)
+#define STR_HAS_PREFIX(prefix, s) (strncmp(prefix, s, STRLEN(prefix)) == 0)
 
 int drm_set_master(int fd) {
 	return ioctl(fd, DRM_IOCTL_SET_MASTER, 0);
@@ -22,15 +23,18 @@ int drm_drop_master(int fd) {
 
 #if defined(__linux__) || defined(__NetBSD__)
 int path_is_drm(const char *path) {
-	static const char prefix[] = "/dev/dri/";
-	static const int prefixlen = STRLEN(prefix);
-	return strncmp(prefix, path, prefixlen) == 0;
+	if (STR_HAS_PREFIX("/dev/dri/", path))
+		return 1;
+	return 0;
 }
 #elif defined(__FreeBSD__)
 int path_is_drm(const char *path) {
-	static const char prefix[] = "/dev/drm/";
-	static const int prefixlen = STRLEN(prefix);
-	return strncmp(prefix, path, prefixlen) == 0;
+	if (STR_HAS_PREFIX("/dev/dri/", path))
+		return 1;
+	/* Some drivers have /dev/dri/X symlinked to /dev/drm/X */
+	if (STR_HAS_PREFIX("/dev/drm/", path))
+		return 1;
+	return 0;
 }
 #else
 #error Unsupported platform
