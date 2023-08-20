@@ -15,6 +15,10 @@
 #include "poller.h"
 #include "server.h"
 
+#ifdef SDNOTIFY_ENABLED
+#include <systemd/sd-daemon.h>
+#endif
+
 #define LISTEN_BACKLOG 16
 
 static int open_socket(const char *path, int uid, int gid) {
@@ -54,6 +58,18 @@ static int open_socket(const char *path, int uid, int gid) {
 error:
 	close(fd);
 	return -1;
+}
+
+static void signal_ready(int fd) {
+	if (fd != -1) {
+		if (write(fd, "\n", 1) != 1) {
+			log_errorf("Could not write readiness signal: %s\n", strerror(errno));
+		}
+		close(fd);
+	}
+#ifdef SDNOTIFY_ENABLED
+	sd_notify(0, "READY=1");
+#endif
 }
 
 int main(int argc, char *argv[]) {
@@ -193,12 +209,7 @@ int main(int argc, char *argv[]) {
 
 	log_info("seatd started");
 
-	if (readiness != -1) {
-		if (write(readiness, "\n", 1) == -1) {
-			log_errorf("Could not write readiness signal: %s\n", strerror(errno));
-		}
-		close(readiness);
-	}
+	signal_ready(readiness);
 
 	while (server.running) {
 		if (poller_poll(&server.poller) == -1) {

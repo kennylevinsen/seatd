@@ -99,13 +99,17 @@ add_project_arguments(
 	language: 'c',
 )
 
-private_files = [
+# needed for cross-compilation
+realtime = meson.get_compiler('c').find_library('rt')
+
+libseat_files = [
 	'common/connection.c',
 	'common/linked_list.c',
 	'common/log.c',
 ]
 
-private_deps = []
+libseat_deps = [realtime]
+libseat_c_args = ['-DLIBSEAT=1']
 
 server_files = [
 	'common/log.c',
@@ -121,15 +125,18 @@ server_files = [
 	'seatd/server.c',
 ]
 
+server_deps = [realtime]
+server_c_args = []
+
 with_seatd = get_option('libseat-seatd') == 'enabled'
 with_builtin = get_option('libseat-builtin') == 'enabled'
 with_server = get_option('server') == 'enabled'
+with_server_sdnotify = get_option('server-sd_notify') == 'enabled'
 
 if with_seatd or with_builtin
-	private_files += 'libseat/backend/seatd.c'
+	libseat_files += 'libseat/backend/seatd.c'
 endif
 
-libseat_c_args = ['-DLIBSEAT=1']
 
 if with_seatd
 	libseat_c_args += '-DSEATD_ENABLED=1'
@@ -149,27 +156,28 @@ if get_option('libseat-logind') != 'disabled'
 	if logind.found()
 		libseat_c_args += '-DLOGIND_ENABLED=1'
 		libseat_c_args += '-DHAVE_@0@=1'.format(logind.name().to_upper())
-		private_files += [
+		libseat_files += [
 			'libseat/backend/logind.c',
 			'common/drm.c',
 		]
-		private_deps += logind
+		libseat_deps += logind
 	endif
 endif
 
-# needed for cross-compilation
-realtime = meson.get_compiler('c').find_library('rt')
-private_deps += realtime
+if with_server_sdnotify
+	server_deps += dependency('libsystemd')
+	server_c_args += '-DSDNOTIFY_ENABLED=1'
+endif
 
 if with_builtin
 	libseat_c_args += '-DBUILTIN_ENABLED=1'
-	private_files += server_files
+	libseat_files += server_files
 endif
 
-private_lib = static_library(
-	'seat-private',
-	private_files,
-	dependencies: private_deps,
+libseat_private_lib = static_library(
+	'libseat-private',
+	libseat_files,
+	dependencies: libseat_deps,
 	include_directories: [include_directories('.', 'include')],
 	c_args: libseat_c_args,
 )
@@ -180,7 +188,7 @@ lib = library(
 	'seat', # This results in the library being called 'libseat'
 	[ 'libseat/libseat.c', 'libseat/backend/noop.c' ],
 	soversion: '@0@'.format(libseat_soversion),
-	link_with: private_lib,
+	link_with: libseat_private_lib,
 	include_directories: [include_directories('.', 'include')],
 	install: true,
 	link_args: symbols_flag,
@@ -207,7 +215,7 @@ pkgconfig.generate(lib,
 
 libseat = declare_dependency(
 	link_with: lib,
-	dependencies: private_deps,
+	dependencies: libseat_deps,
 	include_directories: include_directories('include', is_system: true),
 	variables: libseat_vars,
 )
@@ -220,7 +228,8 @@ if with_server
 		[ server_files, 'seatd/seatd.c' ],
 		include_directories: [include_directories('.', 'include')],
 		install: true,
-		dependencies: [realtime],
+		dependencies: server_deps,
+		c_args: server_c_args,
 	)
 	executable(
 		'seatd-launch',
@@ -287,4 +296,5 @@ summary({
 	'libseat-systemd': logind.found() and logind.name() == 'libsystemd',
 	'libseat-elogind': logind.found() and logind.name() == 'libelogind',
 	'server': with_server,
+	'server-sd_notify': with_server_sdnotify,
 }, bool_yn: true)
