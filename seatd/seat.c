@@ -6,7 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/types.h>
+#include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "client.h"
@@ -31,12 +32,17 @@ struct seat *seat_create(const char *seat_name, bool vt_bound) {
 	seat->vt_bound = vt_bound;
 	seat->seat_name = strdup(seat_name);
 	seat->cur_vt = 0;
+	seat->state = SEAT_STATE_CLOSED;
 	if (seat->seat_name == NULL) {
 		free(seat);
 		return NULL;
 	}
 	if (vt_bound) {
 		log_infof("Created VT-bound seat %s", seat_name);
+		if (timer_create(CLOCK_MONOTONIC, NULL, &seat->timer) == -1) {
+			log_errorf("Could not create grace timer: %s\n", strerror(errno));
+			seat->timer = 0;
+		}
 	} else {
 		log_infof("Created seat %s", seat_name);
 	}
@@ -45,10 +51,19 @@ struct seat *seat_create(const char *seat_name, bool vt_bound) {
 
 void seat_destroy(struct seat *seat) {
 	assert(seat);
+	// Aim for immediate termination
+	seat->grace_millis = 0;
 	while (!linked_list_empty(&seat->clients)) {
 		struct client *client = (struct client *)seat->clients.next;
 		assert(client->seat == seat);
 		client_destroy(client);
+	}
+	if (seat->state != SEAT_STATE_CLOSED && seat->vt_bound) {
+		vt_close(seat->cur_vt);
+		seat->state = SEAT_STATE_CLOSED;
+	}
+	if (seat->timer != 0) {
+		timer_delete(seat->timer);
 	}
 	linked_list_remove(&seat->link);
 	free(seat->seat_name);
@@ -456,11 +471,19 @@ int seat_open_client(struct seat *seat, struct client *client) {
 		errno = EBUSY;
 		return -1;
 	}
-
+	if (seat->state == SEAT_STATE_GRACE_PERIOD) {
+		// Clear timer
+		struct itimerspec timerspec = {
+			.it_interval = {0},
+			.it_value = {0},
+		};
+		timer_settime(seat->timer, 0, &timerspec, NULL);
+	}
 	if (seat->vt_bound && vt_open(client->session) == -1) {
 		log_error("Could not open VT for client");
 		goto error;
 	}
+	seat->state = SEAT_STATE_OPENED;
 
 	for (struct linked_list *elem = client->devices.next; elem != &client->devices;
 	     elem = elem->next) {
@@ -481,10 +504,39 @@ int seat_open_client(struct seat *seat, struct client *client) {
 	return 0;
 
 error:
+	if (seat->active_client != NULL) {
+		while (!linked_list_empty(&client->devices)) {
+			struct seat_device *device = (struct seat_device *)client->devices.next;
+			if (seat_close_device(client, device) == -1) {
+				log_errorf("Could not close %s: %s", device->path, strerror(errno));
+			}
+		}
+		client->state = CLIENT_CLOSED;
+		seat->active_client = NULL;
+	}
 	if (seat->vt_bound) {
 		vt_close(seat->cur_vt);
 	}
+	seat->state = SEAT_STATE_CLOSED;
 	return -1;
+}
+
+void seat_close(struct seat *seat) {
+	switch (seat->state) {
+	case SEAT_STATE_GRACE_PERIOD:;
+		assert(seat->cur_vt != -1);
+		log_debug("Grace period expired, closing active VT");
+		struct itimerspec timerspec = {
+			.it_interval = {0},
+			.it_value = {0},
+		};
+		timer_settime(seat->timer, 0, &timerspec, NULL);
+		vt_close(seat->cur_vt);
+		seat->state = SEAT_STATE_CLOSED;
+		return;
+	default:
+		return;
+	}
 }
 
 static int seat_close_client(struct client *client) {
@@ -510,13 +562,30 @@ static int seat_close_client(struct client *client) {
 		if (was_current && seat->active_client == NULL) {
 			// This client was current, but there were no clients
 			// waiting to take this VT, so clean it up.
-			log_debug("Closing active VT");
-			vt_close(seat->cur_vt);
+			if (seat->grace_millis == 0) {
+				log_debug("Closing active VT");
+				vt_close(seat->cur_vt);
+				seat->state = SEAT_STATE_CLOSED;
+			} else {
+				log_debug("Queuing close of active VT");
+				struct itimerspec timerspec = {
+					.it_interval = {0},
+					.it_value =
+						{
+							.tv_sec = seat->grace_millis / 1000,
+							.tv_nsec = (seat->grace_millis % 1000) *
+								   1000 * 1000,
+						},
+				};
+				timer_settime(seat->timer, 0, &timerspec, NULL);
+				seat->state = SEAT_STATE_GRACE_PERIOD;
+			}
 		} else if (!was_current && client->state != CLIENT_CLOSED) {
 			// This client was not current, but as the client was
 			// running, we need to clean up the VT.
 			log_debug("Closing inactive VT");
 			vt_close(client->session);
+			seat->state = SEAT_STATE_CLOSED;
 		}
 	}
 
@@ -526,11 +595,9 @@ static int seat_close_client(struct client *client) {
 	return 0;
 }
 
-static int seat_disable_client(struct client *client) {
+static int seat_disable_client(struct seat *seat) {
+	struct client *client = seat->active_client;
 	assert(client);
-	assert(client->seat);
-
-	struct seat *seat = client->seat;
 
 	if (client->state != CLIENT_ACTIVE) {
 		log_error("Could not disable client: client is not active");
@@ -644,7 +711,7 @@ int seat_set_next_session(struct client *client, int session) {
 
 	log_infof("Queuing switch to client %d on %s", session, seat->seat_name);
 	seat->next_client = target;
-	seat_disable_client(seat->active_client);
+	seat_disable_client(seat);
 	return 0;
 }
 
@@ -670,12 +737,11 @@ int seat_vt_release(struct seat *seat) {
 		return -1;
 	}
 	seat_update_vt(seat);
-
 	log_debug("Releasing VT");
 	if (seat->active_client != NULL) {
-		seat_disable_client(seat->active_client);
+		seat_disable_client(seat);
 	}
-
+	seat_close(seat);
 	vt_ack(seat, true);
 	seat->cur_vt = -1;
 	return 0;

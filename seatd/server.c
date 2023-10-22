@@ -18,54 +18,6 @@
 #include "server.h"
 #include "terminal.h"
 
-static int server_handle_vt_acq(int signal, void *data);
-static int server_handle_vt_rel(int signal, void *data);
-static int server_handle_kill(int signal, void *data);
-
-int server_init(struct server *server) {
-	if (poller_init(&server->poller) == -1) {
-		log_errorf("could not initialize poller: %s", strerror(errno));
-		return -1;
-	}
-
-	linked_list_init(&server->seats);
-	linked_list_init(&server->idle_clients);
-
-	if (poller_add_signal(&server->poller, SIGUSR1, server_handle_vt_rel, server) == NULL ||
-	    poller_add_signal(&server->poller, SIGUSR2, server_handle_vt_acq, server) == NULL ||
-	    poller_add_signal(&server->poller, SIGINT, server_handle_kill, server) == NULL ||
-	    poller_add_signal(&server->poller, SIGTERM, server_handle_kill, server) == NULL) {
-		server_finish(server);
-		return -1;
-	}
-
-	char *vtenv = getenv("SEATD_VTBOUND");
-
-	// TODO: create more seats:
-	struct seat *seat = seat_create("seat0", vtenv == NULL || strcmp(vtenv, "1") == 0);
-	if (seat == NULL) {
-		server_finish(server);
-		return -1;
-	}
-
-	linked_list_insert(&server->seats, &seat->link);
-	server->running = true;
-	return 0;
-}
-
-void server_finish(struct server *server) {
-	assert(server);
-	while (!linked_list_empty(&server->idle_clients)) {
-		struct client *client = (struct client *)server->idle_clients.next;
-		client_destroy(client);
-	}
-	while (!linked_list_empty(&server->seats)) {
-		struct seat *seat = (struct seat *)server->seats.next;
-		seat_destroy(seat);
-	}
-	poller_finish(&server->poller);
-}
-
 struct seat *server_get_seat(struct server *server, const char *seat_name) {
 	for (struct linked_list *elem = server->seats.next; elem != &server->seats;
 	     elem = elem->next) {
@@ -106,6 +58,63 @@ static int server_handle_kill(int signal, void *data) {
 	struct server *server = data;
 	server->running = false;
 	return 0;
+}
+
+static int server_handle_alarm(int signal, void *data) {
+	(void)signal;
+	struct server *server = data;
+	for (struct linked_list *elem = server->seats.next; elem != &server->seats;
+	     elem = elem->next) {
+		struct seat *seat = (struct seat *)elem;
+		seat_close(seat);
+	}
+	return 0;
+}
+
+int server_init(struct server *server) {
+	if (poller_init(&server->poller) == -1) {
+		log_errorf("could not initialize poller: %s", strerror(errno));
+		return -1;
+	}
+
+	linked_list_init(&server->seats);
+	linked_list_init(&server->idle_clients);
+
+	if (poller_add_signal(&server->poller, SIGUSR1, server_handle_vt_rel, server) == NULL ||
+	    poller_add_signal(&server->poller, SIGUSR2, server_handle_vt_acq, server) == NULL ||
+	    poller_add_signal(&server->poller, SIGINT, server_handle_kill, server) == NULL ||
+	    poller_add_signal(&server->poller, SIGTERM, server_handle_kill, server) == NULL ||
+	    poller_add_signal(&server->poller, SIGALRM, server_handle_alarm, server) == NULL) {
+		server_finish(server);
+		return -1;
+	}
+
+	char *vtenv = getenv("SEATD_VTBOUND");
+
+	// TODO: create more seats:
+	struct seat *seat = seat_create("seat0", vtenv == NULL || strcmp(vtenv, "1") == 0);
+	if (seat == NULL) {
+		server_finish(server);
+		return -1;
+	}
+	seat->grace_millis = 100;
+
+	linked_list_insert(&server->seats, &seat->link);
+	server->running = true;
+	return 0;
+}
+
+void server_finish(struct server *server) {
+	assert(server);
+	while (!linked_list_empty(&server->idle_clients)) {
+		struct client *client = (struct client *)server->idle_clients.next;
+		client_destroy(client);
+	}
+	while (!linked_list_empty(&server->seats)) {
+		struct seat *seat = (struct seat *)server->seats.next;
+		seat_destroy(seat);
+	}
+	poller_finish(&server->poller);
 }
 
 static int set_nonblock(int fd) {

@@ -26,6 +26,12 @@ struct seat_device {
 	enum seat_device_type type;
 };
 
+enum seat_state {
+	SEAT_STATE_OPENED,
+	SEAT_STATE_GRACE_PERIOD,
+	SEAT_STATE_CLOSED,
+};
+
 struct seat {
 	struct linked_list link; // server::seats
 	char *seat_name;
@@ -36,9 +42,13 @@ struct seat {
 	bool vt_bound;
 	int cur_vt;
 	int session_cnt;
+	enum seat_state state;
+	timer_t timer;
+	int grace_millis;
 };
 
 struct seat *seat_create(const char *name, bool vt_bound);
+void seat_close(struct seat *seat);
 void seat_destroy(struct seat *seat);
 
 int seat_add_client(struct seat *seat, struct client *client);
