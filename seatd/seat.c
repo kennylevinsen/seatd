@@ -537,7 +537,7 @@ static int seat_disable_client(struct client *client) {
 		errno = EBUSY;
 		return -1;
 	}
-	assert(seat->active_client = client);
+	assert(seat->active_client == client);
 
 	// We *deactivate* all remaining fds. These may later be reactivated.
 	// The reason we cannot just close them is that certain device fds, such
