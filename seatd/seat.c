@@ -80,7 +80,7 @@ static void seat_update_vt(struct seat *seat) {
 	close(tty0fd);
 }
 
-static int vt_open(int vt) {
+static int vt_open(int vt, bool already_open) {
 	assert(vt != -1);
 	int ttyfd = terminal_open(vt);
 	if (ttyfd == -1) {
@@ -90,7 +90,9 @@ static int vt_open(int vt) {
 
 	terminal_set_process_switching(ttyfd, true);
 	terminal_set_keyboard(ttyfd, false);
-	terminal_set_graphics(ttyfd, true);
+	if (!already_open) {
+		terminal_set_graphics(ttyfd, true);
+	}
 	close(ttyfd);
 	return 0;
 }
@@ -479,7 +481,7 @@ int seat_open_client(struct seat *seat, struct client *client) {
 		};
 		timer_settime(seat->timer, 0, &timerspec, NULL);
 	}
-	if (seat->vt_bound && vt_open(client->session) == -1) {
+	if (seat->vt_bound && vt_open(client->session, seat->state != SEAT_STATE_CLOSED) == -1) {
 		log_error("Could not open VT for client");
 		goto error;
 	}
