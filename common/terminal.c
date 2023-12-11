@@ -169,7 +169,6 @@ int terminal_current_vt(int fd) {
 #if defined(__linux__) || defined(__NetBSD__)
 	struct vt_stat st;
 	int res = ioctl(fd, VT_GETSTATE, &st);
-	close(fd);
 	if (res == -1) {
 		log_errorf("Could not retrieve VT state: %s", strerror(errno));
 		return -1;
@@ -178,7 +177,6 @@ int terminal_current_vt(int fd) {
 #elif defined(__FreeBSD__)
 	int vt;
 	int res = ioctl(fd, VT_GETACTIVE, &vt);
-	close(fd);
 	if (res == -1) {
 		log_errorf("Could not retrieve VT state: %s", strerror(errno));
 		return -1;
