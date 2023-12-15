@@ -66,7 +66,6 @@ static void seat_update_vt(struct seat *seat) {
 }
 
 static int vt_open(int vt) {
-	assert(vt != -1);
 	int ttyfd = terminal_open(vt);
 	if (ttyfd == -1) {
 		log_errorf("Could not open terminal for VT %d: %s", vt, strerror(errno));
@@ -121,9 +120,6 @@ static int vt_ack(struct seat *seat, bool release) {
 }
 
 int seat_add_client(struct seat *seat, struct client *client) {
-	assert(seat);
-	assert(client);
-
 	if (client->seat != NULL) {
 		log_error("Could not add client: client is already a member of a seat");
 		errno = EBUSY;
@@ -167,15 +163,15 @@ int seat_add_client(struct seat *seat, struct client *client) {
 	}
 
 	client->seat = seat;
+	linked_list_remove(&client->link);
+	linked_list_insert(&seat->clients, &client->link);
+
 	log_infof("Added client %d to %s", client->session, seat->seat_name);
 
 	return 0;
 }
 
 int seat_remove_client(struct client *client) {
-	assert(client);
-	assert(client->seat);
-
 	struct seat *seat = client->seat;
 	if (seat->next_client == client) {
 		seat->next_client = NULL;
@@ -189,15 +185,17 @@ int seat_remove_client(struct client *client) {
 	seat_close_client(client);
 
 	client->seat = NULL;
+	linked_list_remove(&client->link);
 	log_infof("Removed client %d from %s", client->session, seat->seat_name);
 
 	return 0;
 }
 
 struct seat_device *seat_find_device(struct client *client, int device_id) {
-	assert(client);
-	assert(client->seat);
-	assert(device_id != 0);
+	if (device_id == 0) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	for (struct linked_list *elem = client->devices.next; elem != &client->devices;
 	     elem = elem->next) {
@@ -211,11 +209,7 @@ struct seat_device *seat_find_device(struct client *client, int device_id) {
 }
 
 struct seat_device *seat_open_device(struct client *client, const char *path) {
-	assert(client);
-	assert(client->seat);
-	assert(strlen(path) > 0);
 	struct seat *seat = client->seat;
-
 	log_debugf("Opening device %s for client %d on %s", path, client->session, seat->seat_name);
 
 	if (client->state != CLIENT_ACTIVE) {
@@ -321,8 +315,6 @@ done:
 }
 
 static int seat_deactivate_device(struct seat_device *seat_device) {
-	assert(seat_device && seat_device->fd > 0);
-
 	if (!seat_device->active) {
 		return 0;
 	}
@@ -351,10 +343,6 @@ static int seat_deactivate_device(struct seat_device *seat_device) {
 }
 
 int seat_close_device(struct client *client, struct seat_device *seat_device) {
-	assert(client);
-	assert(client->seat);
-	assert(seat_device && seat_device->fd != -1);
-
 	log_debugf("Closing device %s for client %d on %s", seat_device->path, client->session,
 		   client->seat->seat_name);
 
@@ -373,11 +361,7 @@ int seat_close_device(struct client *client, struct seat_device *seat_device) {
 	return 0;
 }
 
-static int seat_activate_device(struct client *client, struct seat_device *seat_device) {
-	assert(client);
-	assert(client->seat);
-	assert(seat_device && seat_device->fd > 0);
-
+static int seat_activate_device(struct seat_device *seat_device) {
 	if (seat_device->active) {
 		return 0;
 	}
@@ -403,8 +387,6 @@ static int seat_activate_device(struct client *client, struct seat_device *seat_
 }
 
 static int seat_activate(struct seat *seat) {
-	assert(seat);
-
 	if (seat->active_client != NULL) {
 		return 0;
 	}
@@ -442,9 +424,6 @@ done:
 }
 
 int seat_open_client(struct seat *seat, struct client *client) {
-	assert(seat);
-	assert(client);
-
 	if (client->state != CLIENT_NEW && client->state != CLIENT_DISABLED) {
 		log_error("Could not enable client: client is not new or disabled");
 		errno = EALREADY;
@@ -465,7 +444,7 @@ int seat_open_client(struct seat *seat, struct client *client) {
 	for (struct linked_list *elem = client->devices.next; elem != &client->devices;
 	     elem = elem->next) {
 		struct seat_device *device = (struct seat_device *)elem;
-		if (seat_activate_device(client, device) == -1) {
+		if (seat_activate_device(device) == -1) {
 			log_errorf("Could not activate %s: %s", device->path, strerror(errno));
 		}
 	}
@@ -488,11 +467,7 @@ error:
 }
 
 static int seat_close_client(struct client *client) {
-	assert(client);
-	assert(client->seat);
-
 	struct seat *seat = client->seat;
-
 	while (!linked_list_empty(&client->devices)) {
 		struct seat_device *device = (struct seat_device *)client->devices.next;
 		if (seat_close_device(client, device) == -1) {
@@ -527,16 +502,13 @@ static int seat_close_client(struct client *client) {
 }
 
 static int seat_disable_client(struct client *client) {
-	assert(client);
-	assert(client->seat);
-
-	struct seat *seat = client->seat;
-
 	if (client->state != CLIENT_ACTIVE) {
 		log_error("Could not disable client: client is not active");
 		errno = EBUSY;
 		return -1;
 	}
+	struct seat *seat = client->seat;
+	assert(seat != NULL);
 	assert(seat->active_client == client);
 
 	// We *deactivate* all remaining fds. These may later be reactivated.
@@ -562,9 +534,6 @@ static int seat_disable_client(struct client *client) {
 }
 
 int seat_ack_disable_client(struct client *client) {
-	assert(client);
-	assert(client->seat);
-
 	struct seat *seat = client->seat;
 	if (client->state != CLIENT_PENDING_DISABLE) {
 		log_error("Could not ack disable: client is not pending disable");
@@ -589,16 +558,12 @@ int seat_ack_disable_client(struct client *client) {
 }
 
 int seat_set_next_session(struct client *client, int session) {
-	assert(client);
-	assert(client->seat);
-
-	struct seat *seat = client->seat;
-
 	if (client->state != CLIENT_ACTIVE) {
 		log_error("Could not set next session: client is not active");
 		errno = EPERM;
 		return -1;
 	}
+	struct seat *seat = client->seat;
 	assert(seat->active_client == client);
 
 	if (session <= 0) {
@@ -649,7 +614,6 @@ int seat_set_next_session(struct client *client, int session) {
 }
 
 int seat_vt_activate(struct seat *seat) {
-	assert(seat);
 	if (!seat->vt_bound) {
 		log_debug("VT activation on non VT-bound seat, ignoring");
 		return -1;
@@ -664,7 +628,6 @@ int seat_vt_activate(struct seat *seat) {
 }
 
 int seat_vt_release(struct seat *seat) {
-	assert(seat);
 	if (!seat->vt_bound) {
 		log_debug("VT release request on non VT-bound seat, ignoring");
 		return -1;

@@ -172,16 +172,12 @@ static int handle_open_seat(struct client *client) {
 		log_errorf("Could not find seat named %s", seat_name);
 		return -1;
 	}
-
 	if (seat_add_client(seat, client) == -1) {
 		log_errorf("Could not add client to target seat: %s", strerror(errno));
 		return -1;
 	}
-	linked_list_remove(&client->link);
-	linked_list_insert(&seat->clients, &client->link);
 
 	size_t seat_name_len = strlen(seat_name);
-
 	struct proto_server_seat_opened rmsg = {
 		.seat_name_len = (uint16_t)seat_name_len,
 	};
@@ -206,8 +202,6 @@ static int handle_close_seat(struct client *client) {
 		log_error("Protocol error: no seat associated with client");
 		return -1;
 	}
-
-	linked_list_remove(&client->link);
 	if (seat_remove_client(client) == -1) {
 		log_error("Could not remove client from seat");
 		return -1;
