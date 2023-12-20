@@ -47,5 +47,6 @@ RestrictAddressFamilies=AF_UNIX
 RestrictRealtime=true
 MemoryDenyWriteExecute=true
 ProtectClock=true
+ProtectHostname=true
 [Install]
 WantedBy=multi-user.target
