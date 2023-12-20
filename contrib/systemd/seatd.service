@@ -33,5 +33,10 @@ SystemCallFilter=~@resources
 SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 
+# Kernel
+ProtectKernelLogs=true
+ProtectKernelModules=true
+LockPersonality=true
+
 [Install]
 WantedBy=multi-user.target
