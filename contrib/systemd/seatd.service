@@ -19,5 +19,9 @@ ProtectProc=invisible
 ProcSubset=pid
 UMask=0077
 
+# Privilege escalation
+NoNewPrivileges=true
+RestrictSUIDSGID=true
+
 [Install]
 WantedBy=multi-user.target
