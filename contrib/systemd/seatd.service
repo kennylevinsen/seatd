@@ -46,5 +46,6 @@ CapabilityBoundingSet=CAP_SYS_ADMIN CAP_CHOWN CAP_SYS_TTY_CONFIG CAP_DAC_OVERRID
 RestrictAddressFamilies=AF_UNIX
 RestrictRealtime=true
 MemoryDenyWriteExecute=true
+ProtectClock=true
 [Install]
 WantedBy=multi-user.target
