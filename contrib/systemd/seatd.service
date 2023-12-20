@@ -23,5 +23,9 @@ UMask=0077
 NoNewPrivileges=true
 RestrictSUIDSGID=true
 
+# Network
+PrivateNetwork=true
+IPAddressDeny=any
+
 [Install]
 WantedBy=multi-user.target
