@@ -41,5 +41,10 @@ LockPersonality=true
 # Namespaces
 RestrictNamespaces=true
 
+# Service capabilities
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_CHOWN CAP_SYS_TTY_CONFIG CAP_DAC_OVERRIDE
+RestrictAddressFamilies=AF_UNIX
+RestrictRealtime=true
+MemoryDenyWriteExecute=true
 [Install]
 WantedBy=multi-user.target
