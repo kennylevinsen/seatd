@@ -27,5 +27,11 @@ RestrictSUIDSGID=true
 PrivateNetwork=true
 IPAddressDeny=any
 
+# System call interfaces
+SystemCallFilter=@system-service
+SystemCallFilter=~@resources
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native
+
 [Install]
 WantedBy=multi-user.target
