@@ -9,5 +9,15 @@ ExecStart=seatd -g seat
 Restart=always
 RestartSec=1
 
+# Filesystem lockdown
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectControlGroups=true
+PrivateTmp=true
+ProtectProc=invisible
+ProcSubset=pid
+UMask=0077
+
 [Install]
 WantedBy=multi-user.target
