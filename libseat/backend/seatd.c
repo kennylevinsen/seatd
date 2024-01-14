@@ -222,7 +222,7 @@ static int execute_events(struct backend_seatd *backend) {
 	return executed;
 }
 
-static int dispatch_pending(struct backend_seatd *backend, int *opcode) {
+static int read_and_queue(struct backend_seatd *backend, int *opcode) {
 	int packets = 0;
 	struct proto_header header;
 	while (connection_get(&backend->connection, &header, sizeof header) != -1) {
@@ -282,13 +282,13 @@ static int poll_connection(struct backend_seatd *backend, int timeout) {
 	return len;
 }
 
-static int dispatch(struct backend_seatd *backend) {
+static int read_until_response(struct backend_seatd *backend) {
 	if (conn_flush(backend) == -1) {
 		return -1;
 	}
 	while (true) {
 		int opcode = 0;
-		if (dispatch_pending(backend, &opcode) == -1) {
+		if (read_and_queue(backend, &opcode) == -1) {
 			log_errorf("Could not dispatch pending messages: %s", strerror(errno));
 			return -1;
 		}
@@ -308,14 +308,14 @@ static int get_fd(struct libseat *base) {
 	return backend->connection.fd;
 }
 
-static int dispatch_and_execute(struct backend_seatd *backend) {
+static int read_and_execute(struct backend_seatd *backend) {
 	int opcode = 0;
-	int dispatched = dispatch_pending(backend, &opcode);
+	int dispatched = read_and_queue(backend, &opcode);
 	if (dispatched == -1) {
 		return -1;
 	}
 	if (opcode != 0) {
-		// We should only receive events here, but we got a response.
+		// We should only receive background events here, but we got a return value.
 		errno = EINVAL;
 		return -1;
 	}
@@ -323,14 +323,14 @@ static int dispatch_and_execute(struct backend_seatd *backend) {
 	return dispatched;
 }
 
-static int dispatch_and_execute(struct libseat *base, int timeout) {
+static int dispatch(struct libseat *base, int timeout) {
 	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
 	if (backend->error) {
 		errno = ENOTCONN;
 		return -1;
 	}
 
-	int predispatch = dispatch_pending_and_execute(backend);
+	int predispatch = read_and_execute(backend);
 	if (predispatch == -1) {
 		return -1;
 	}
@@ -352,7 +352,7 @@ static int dispatch_and_execute(struct libseat *base, int timeout) {
 		return -1;
 	}
 
-	int postdispatch = dispatch_pending_and_execute(backend);
+	int postdispatch = read_and_execute(backend);
 	if (postdispatch == -1) {
 		return -1;
 	}
@@ -379,7 +379,7 @@ static struct libseat *_open_seat(const struct libseat_seat_listener *listener, 
 		.opcode = CLIENT_OPEN_SEAT,
 		.size = 0,
 	};
-	if (conn_put(backend, &header, sizeof header) == -1 || dispatch(backend) == -1) {
+	if (conn_put(backend, &header, sizeof header) == -1 || read_until_response(backend) == -1) {
 		goto backend_error;
 	}
 
@@ -424,7 +424,7 @@ static int close_seat(struct libseat *base) {
 		.opcode = CLIENT_CLOSE_SEAT,
 		.size = 0,
 	};
-	if (conn_put(backend, &header, sizeof header) == -1 || dispatch(backend) == -1) {
+	if (conn_put(backend, &header, sizeof header) == -1 || read_until_response(backend) == -1) {
 		goto error;
 	}
 
@@ -498,7 +498,7 @@ static int open_device(struct libseat *base, const char *path, int *fd) {
 	};
 	if (conn_put(backend, &header, sizeof header) == -1 ||
 	    conn_put(backend, &msg, sizeof msg) == -1 || conn_put(backend, path, pathlen) == -1 ||
-	    dispatch(backend) == -1) {
+	    read_until_response(backend) == -1) {
 		goto error;
 	}
 
@@ -535,7 +535,7 @@ static int close_device(struct libseat *base, int device_id) {
 		.size = sizeof msg,
 	};
 	if (conn_put(backend, &header, sizeof header) == -1 ||
-	    conn_put(backend, &msg, sizeof msg) == -1 || dispatch(backend) == -1) {
+	    conn_put(backend, &msg, sizeof msg) == -1 || read_until_response(backend) == -1) {
 		goto error;
 	}
 
@@ -602,7 +602,7 @@ const struct seat_impl seatd_impl = {
 	.close_device = close_device,
 	.switch_session = switch_session,
 	.get_fd = get_fd,
-	.dispatch = dispatch_and_execute,
+	.dispatch = dispatch,
 };
 
 #ifdef BUILTIN_ENABLED
