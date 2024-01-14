@@ -114,10 +114,10 @@ void client_destroy(struct client *client) {
 		close(client->connection.fd);
 		client->connection.fd = -1;
 	}
-	linked_list_remove(&client->link);
 	if (client->seat != NULL) {
 		seat_remove_client(client);
 	}
+	linked_list_remove(&client->link);
 	if (client->event_source != NULL) {
 		event_source_fd_destroy(client->event_source);
 		client->event_source = NULL;

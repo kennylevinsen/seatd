@@ -182,10 +182,12 @@ int seat_remove_client(struct client *client) {
 		seat_close_device(client, device);
 	}
 
-	seat_close_client(client);
-
-	client->seat = NULL;
 	linked_list_remove(&client->link);
+	linked_list_init(&client->link);
+
+	seat_close_client(client);
+	client->seat = NULL;
+
 	log_infof("Removed client %d from %s", client->session, seat->seat_name);
 
 	return 0;
