@@ -313,8 +313,7 @@ static int read_and_execute(struct backend_seatd *backend) {
 	int dispatched = read_and_queue(backend, &opcode);
 	if (dispatched == -1) {
 		return -1;
-	}
-	if (opcode != 0) {
+	} else if (opcode != 0) {
 		// We should only receive background events here, but we got a return value.
 		errno = EINVAL;
 		return -1;
@@ -569,11 +568,20 @@ static int switch_session(struct libseat *base, int session) {
 		.size = sizeof msg,
 	};
 	if (conn_put(backend, &header, sizeof header) == -1 ||
-	    conn_put(backend, &msg, sizeof msg) == -1 || conn_flush(backend) == -1) {
-		return -1;
+	    conn_put(backend, &msg, sizeof msg) == -1 || read_until_response(backend) == -1) {
+		goto error;
 	}
 
+	if (read_header(backend, SERVER_SESSION_SWITCHED, 0, false) == SIZE_MAX) {
+		goto error;
+	}
+
+	check_pending_events(backend);
 	return 0;
+
+error:
+	check_pending_events(backend);
+	return -1;
 }
 
 static int disable_seat(struct libseat *base) {
@@ -586,11 +594,20 @@ static int disable_seat(struct libseat *base) {
 		.opcode = CLIENT_DISABLE_SEAT,
 		.size = 0,
 	};
-	if (conn_put(backend, &header, sizeof header) == -1 || conn_flush(backend) == -1) {
-		return -1;
+	if (conn_put(backend, &header, sizeof header) == -1 || read_until_response(backend) == -1) {
+		goto error;
 	}
 
+	if (read_header(backend, SERVER_SEAT_DISABLED, 0, false) == SIZE_MAX) {
+		goto error;
+	}
+
+	check_pending_events(backend);
 	return 0;
+
+error:
+	check_pending_events(backend);
+	return -1;
 }
 
 const struct seat_impl seatd_impl = {

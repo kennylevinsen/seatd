@@ -306,12 +306,22 @@ static int handle_switch_session(struct client *client, int session) {
 	}
 
 	if (seat_set_next_session(client, session) == -1) {
-		goto error;
+		goto fail;
+	}
+
+	struct proto_header header = {
+		.opcode = SERVER_SESSION_SWITCHED,
+		.size = 0,
+	};
+
+	if (connection_put(&client->connection, &header, sizeof header) == -1) {
+		log_errorf("Could not write response: %s", strerror(errno));
+		return -1;
 	}
 
 	return 0;
 
-error:
+fail:
 	return client_send_error(client, errno);
 }
 
@@ -322,12 +332,22 @@ static int handle_disable_seat(struct client *client) {
 	}
 
 	if (seat_ack_disable_client(client) == -1) {
-		goto error;
+		goto fail;
+	}
+
+	struct proto_header header = {
+		.opcode = SERVER_SEAT_DISABLED,
+		.size = 0,
+	};
+
+	if (connection_put(&client->connection, &header, sizeof header) == -1) {
+		log_errorf("Could not write response: %s", strerror(errno));
+		return -1;
 	}
 
 	return 0;
 
-error:
+fail:
 	return client_send_error(client, errno);
 }
 
