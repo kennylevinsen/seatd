@@ -59,7 +59,28 @@ static void test_short_read(void) {
 	close(fds[1]);
 }
 
-static void test_long_write(void) {
+static void test_max_write(void) {
+	int fds[2];
+	socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
+	struct connection c1 = {.fd = fds[0]};
+	struct connection c2 = {.fd = fds[1]};
+
+	char in[CONNECTION_BUFFER_SIZE];
+	char out[CONNECTION_BUFFER_SIZE];
+
+	test_assert(connection_put(&c1, &in, sizeof in) == 0);
+	test_assert(connection_flush(&c1) == sizeof in);
+
+	test_assert(connection_read(&c2) == sizeof out);
+	test_assert(connection_pending(&c2) == sizeof out);
+	test_assert(connection_get(&c2, &out, sizeof out) == sizeof out);
+	test_assert(connection_pending(&c2) == 0);
+	test_assert(connection_read(&c2) == -1 && errno == EAGAIN);
+	close(fds[0]);
+	close(fds[1]);
+}
+
+static void test_overflow_write(void) {
 	int fds[2];
 	socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
 	struct connection c1 = {.fd = fds[0]};
@@ -68,7 +89,7 @@ static void test_long_write(void) {
 	char in[CONNECTION_BUFFER_SIZE + 1];
 	memset(in, 0, sizeof in);
 
-	test_assert(connection_put(&c1, &in, sizeof in) == -1);
+	test_assert(connection_put(&c1, &in, sizeof in) == -1 && errno == EOVERFLOW);
 	test_assert(errno = EAGAIN);
 
 	test_assert(connection_read(&c2) == -1 && errno == EAGAIN);
@@ -169,7 +190,8 @@ int main(int argc, char *argv[]) {
 
 	test_run(test_send_one_byte);
 	test_run(test_short_read);
-	test_run(test_long_write);
+	test_run(test_max_write);
+	test_run(test_overflow_write);
 	test_run(test_send_one_int);
 	test_run(test_restore);
 	test_run(test_send_variable_sequence);

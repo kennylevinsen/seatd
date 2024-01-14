@@ -266,7 +266,7 @@ int connection_put(struct connection *connection, const void *data, size_t count
 }
 
 int connection_put_fd(struct connection *connection, int fd) {
-	if (connection_buffer_size(&connection->fds_out) == MAX_FDS * sizeof fd) {
+	if (connection_buffer_size(&connection->fds_out) >= MAX_FDS * sizeof fd) {
 		errno = EOVERFLOW;
 		return -1;
 	}
