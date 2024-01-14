@@ -253,15 +253,6 @@ static int dispatch_pending(struct backend_seatd *backend, int *opcode) {
 	return packets;
 }
 
-static int dispatch_pending_and_execute(struct backend_seatd *backend) {
-	int dispatched = dispatch_pending(backend, NULL);
-	if (dispatched == -1) {
-		return -1;
-	}
-	dispatched += execute_events(backend);
-	return dispatched;
-}
-
 static int poll_connection(struct backend_seatd *backend, int timeout) {
 	struct pollfd fd = {
 		.fd = backend->connection.fd,
@@ -315,6 +306,21 @@ static int dispatch(struct backend_seatd *backend) {
 static int get_fd(struct libseat *base) {
 	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
 	return backend->connection.fd;
+}
+
+static int dispatch_and_execute(struct backend_seatd *backend) {
+	int opcode = 0;
+	int dispatched = dispatch_pending(backend, &opcode);
+	if (dispatched == -1) {
+		return -1;
+	}
+	if (opcode != 0) {
+		// We should only receive events here, but we got a response.
+		errno = EINVAL;
+		return -1;
+	}
+	dispatched += execute_events(backend);
+	return dispatched;
 }
 
 static int dispatch_and_execute(struct libseat *base, int timeout) {
