@@ -39,6 +39,25 @@ static void test_linked_list_single_insert(void) {
 	test_assert(!linked_list_empty(&elem1.link));
 }
 
+static void test_linked_list_single_insert_init(void) {
+	struct linked_list list;
+	linked_list_init(&list);
+
+	struct list_elem elem1 = {{0}, NULL};
+	linked_list_init(&elem1.link);
+	linked_list_insert(&list, &elem1.link);
+
+	// Both next and prev on list should point to the elem
+	test_assert(list.next == &elem1.link && list.prev == &elem1.link);
+
+	// Both next and prev on elem should point to the list
+	test_assert(elem1.link.next == &list && elem1.link.prev == &list);
+
+	// The list and element should not be empty
+	test_assert(!linked_list_empty(&list));
+	test_assert(!linked_list_empty(&elem1.link));
+}
+
 static void test_linked_list_single_remove(void) {
 	struct linked_list list;
 	linked_list_init(&list);
@@ -275,6 +294,7 @@ int main(int argc, char *argv[]) {
 
 	test_run(test_linked_list_init);
 	test_run(test_linked_list_single_insert);
+	test_run(test_linked_list_single_insert_init);
 	test_run(test_linked_list_single_remove);
 	test_run(test_linked_list_alternate_remove);
 	test_run(test_linked_list_sequential_remove);

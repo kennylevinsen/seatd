@@ -11,7 +11,7 @@ void linked_list_init(struct linked_list *list) {
 
 void linked_list_insert(struct linked_list *list, struct linked_list *elem) {
 	assert(list->prev != NULL && list->next != NULL);
-	assert(elem->prev == NULL && elem->next == NULL);
+	assert(elem->prev == elem->next);
 
 	elem->prev = list;
 	elem->next = list->next;
