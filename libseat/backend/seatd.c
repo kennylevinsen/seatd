@@ -683,6 +683,6 @@ const struct seat_impl builtin_impl = {
 	.close_device = close_device,
 	.switch_session = switch_session,
 	.get_fd = get_fd,
-	.dispatch = dispatch_and_execute,
+	.dispatch = dispatch,
 };
 #endif
