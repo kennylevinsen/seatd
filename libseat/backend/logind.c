@@ -306,38 +306,6 @@ static struct backend_logind *backend_logind_from_libseat_backend(struct libseat
 	return (struct backend_logind *)base;
 }
 
-static int session_activate(struct backend_logind *session) {
-	sd_bus_message *msg = NULL;
-	sd_bus_error error = SD_BUS_ERROR_NULL;
-
-	// Note: the Activate call might not make the session active immediately
-	int ret = sd_bus_call_method(session->bus, "org.freedesktop.login1", session->path,
-				     "org.freedesktop.login1.Session", "Activate", &error, &msg, "");
-	if (ret < 0) {
-		log_errorf("Could not activate session: %s", error.message);
-	}
-
-	sd_bus_error_free(&error);
-	sd_bus_message_unref(msg);
-	return ret;
-}
-
-static int session_check_active(struct backend_logind *session) {
-	sd_bus_error error = SD_BUS_ERROR_NULL;
-	int active = 0;
-	int ret = sd_bus_get_property_trivial(session->bus, "org.freedesktop.login1", session->path,
-					      "org.freedesktop.login1.Session", "Active", &error,
-					      'b', &active);
-	if (ret < 0) {
-		log_errorf("Could not check if session is active: %s", error.message);
-	} else {
-		session->active = (bool)active;
-	}
-
-	sd_bus_error_free(&error);
-	return ret;
-}
-
 static int take_control(struct backend_logind *session) {
 	sd_bus_message *msg = NULL;
 	sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -720,16 +688,6 @@ static struct libseat *logind_open_seat(const struct libseat_seat_listener *list
 	}
 
 	ret = add_signal_matches(backend);
-	if (ret < 0) {
-		goto error;
-	}
-
-	ret = session_activate(backend);
-	if (ret < 0) {
-		goto error;
-	}
-
-	ret = session_check_active(backend);
 	if (ret < 0) {
 		goto error;
 	}
