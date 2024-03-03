@@ -303,8 +303,7 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 
 		if (strcmp(old_device->path, sanitized_path) == 0) {
 			old_device->ref_cnt++;
-			device = old_device;
-			goto done;
+			return device;
 		}
 
 		if (old_device->device_id >= device_id) {
@@ -338,7 +337,7 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		// Nothing to do here
 		break;
 	default:
-		log_error("Invalid seat device type");
+		log_errorf("Invalid seat device type: %d", type);
 		abort();
 	}
 
@@ -365,8 +364,6 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 	device->active = true;
 	linked_list_insert(&client->devices, &device->link);
 
-done:
-
 	return device;
 }
 
@@ -391,7 +388,7 @@ static int seat_deactivate_device(struct seat_device *seat_device) {
 		// Nothing to do here
 		break;
 	default:
-		log_error("Invalid seat device type");
+		log_errorf("Invalid seat device type: %d", seat_device->type);
 		abort();
 	}
 	seat_device->active = false;
@@ -435,7 +432,7 @@ static int seat_activate_device(struct seat_device *seat_device) {
 		// Nothing to do here
 		break;
 	default:
-		log_error("Invalid seat device type");
+		log_errorf("Invalid seat device type: %d", seat_device->type);
 		abort();
 	}
 
@@ -443,6 +440,7 @@ static int seat_activate_device(struct seat_device *seat_device) {
 }
 
 int seat_open_client(struct seat *seat, struct client *client) {
+	assert(client->seat == seat);
 	if (client->state != CLIENT_NEW && client->state != CLIENT_DISABLED) {
 		log_error("Could not enable client: client is not new or disabled");
 		errno = EALREADY;
