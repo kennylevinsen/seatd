@@ -19,6 +19,17 @@
 #include "terminal.h"
 #include "wscons.h"
 
+/*
+ * seat_create creates a new seat with the given name, which may be VT-bound.
+ *
+ * A VT-bound seat is one where exactly one client session can exist per VT,
+ * and switching VTs switches the active session accordingly. A non-VT-bound
+ * seat is one where VTs are not used, and any number of sessions can be opened
+ * which are switched "virtually", without any effects on present VTs.
+ *
+ * VT-bound seats must be used when VTs are enabled to properly disable kernel
+ * console input processing and rendition.
+ */
 struct seat *seat_create(const char *seat_name, bool vt_bound) {
 	struct seat *seat = calloc(1, sizeof(struct seat));
 	if (seat == NULL) {
@@ -116,6 +127,22 @@ static int vt_ack(struct seat *seat, bool release) {
 	return 0;
 }
 
+/*
+ * seat_activate opens the next client on the seat, assuming no client is
+ * currently active.
+ *
+ * 1. If a client is queued on the seat by seat_set_next_session, it is chosen.
+ *
+ * 2. If VT bound, it choses the next client whose session matches the current
+ *    VT. This should only apply if the previous client was deactivated because
+ *    of a VT switch.
+ *
+ * 3. Otherwise, the first client on the seat's list of clients, if any.
+ *
+ * Be careful not to call seat_activate immediately after closing a client, as
+ * this can lead to it immediatley re-opening. The client should be removed as
+ * a candidate before seat_activate is called.
+ */
 static int seat_activate(struct seat *seat) {
 	if (seat->active_client != NULL) {
 		return 0;
@@ -153,6 +180,14 @@ done:
 	return seat_open_client(seat, next_client);
 }
 
+/*
+ * seat_add_client assigns a sesssion ID to the client and adds it to the seat,
+ * if allowed. The client does not open the seat, remaining closed until
+ * `seat_open_client` is called.
+ *
+ * Fails if the client is not eligible to be added to a new seat, or if the
+ * seat does not accept new clients.
+ */
 int seat_add_client(struct seat *seat, struct client *client) {
 	if (client->seat != NULL) {
 		log_error("Could not add client: client is already a member of a seat");
@@ -205,6 +240,13 @@ int seat_add_client(struct seat *seat, struct client *client) {
 	return 0;
 }
 
+/*
+ * seat_remove_client tears down the client and removes it from the seat,
+ * revoking any open devices as necessary. If the client was active on the seat
+ * at the time of this call, seat_activate is called to activate a new client
+ * if any is eligible. If the seat is VT-bound, this also re-configures the VT
+ * for non-graphical use.
+ */
 void seat_remove_client(struct client *client) {
 	struct seat *seat = client->seat;
 	if (seat->next_client == client) {
@@ -247,6 +289,9 @@ void seat_remove_client(struct client *client) {
 	log_infof("Removed client %d from %s", client->session, seat->seat_name);
 }
 
+/*
+ * seat_find_device finds an open device on the seat based on its device ID.
+ */
 struct seat_device *seat_find_device(struct client *client, int device_id) {
 	if (device_id == 0) {
 		errno = EINVAL;
@@ -264,6 +309,15 @@ struct seat_device *seat_find_device(struct client *client, int device_id) {
 	return NULL;
 }
 
+/*
+ * seat_open_device opens a device by the specified device path for the client,
+ * sanitizing the path and configuring the device as necessary for usage. If
+ * such a device has already been opened, the reference count is increased and
+ * the device entry is reused.
+ *
+ * Fails if the client is not active or has exceeded its device limit, or if
+ * the device type is not supported or could not be opened.
+ */
 struct seat_device *seat_open_device(struct client *client, const char *path) {
 	struct seat *seat = client->seat;
 	log_debugf("Opening device %s for client %d on %s", path, client->session, seat->seat_name);
@@ -367,6 +421,11 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 	return device;
 }
 
+/*
+ * seat_deactivate_device revokes access to the device so that the client can
+ * no longer use it for privileged actions. Depending on the device type, the
+ * client may be required to reopen the device to use it again.
+ */
 static int seat_deactivate_device(struct seat_device *seat_device) {
 	if (!seat_device->active) {
 		return 0;
@@ -395,6 +454,10 @@ static int seat_deactivate_device(struct seat_device *seat_device) {
 	return 0;
 }
 
+/*
+ * seat_close_device reduces the reference count for the device. If it reaches
+ * zero, the device is deactivated, closed and removed.
+ */
 int seat_close_device(struct client *client, struct seat_device *seat_device) {
 	log_debugf("Closing device %s for client %d on %s", seat_device->path, client->session,
 		   client->seat->seat_name);
@@ -414,6 +477,10 @@ int seat_close_device(struct client *client, struct seat_device *seat_device) {
 	return 0;
 }
 
+/*
+ * seat_activate_device re-activates the device for reuse after deactivation.
+ * It fails if the device cannot be reused.
+ */
 static int seat_activate_device(struct seat_device *seat_device) {
 	if (seat_device->active) {
 		return 0;
@@ -439,6 +506,11 @@ static int seat_activate_device(struct seat_device *seat_device) {
 	return 0;
 }
 
+/*
+ * seat_open_client makes the client active. The client must be a disabled or
+ * new member of the seat, and the seat must not have an active seat. If
+ * VT-bound, this opens the VT and configures it for a graphical session.
+ */
 int seat_open_client(struct seat *seat, struct client *client) {
 	assert(client->seat == seat);
 	if (client->state != CLIENT_NEW && client->state != CLIENT_DISABLED) {
@@ -483,6 +555,11 @@ error:
 	return -1;
 }
 
+/*
+ * seat_disable_client deactivates all devices of an active client and sends a
+ * request for it to disable, which it must ack. It is meant for when a client
+ * is suspended due to session switching.
+ */
 static int seat_disable_client(struct client *client) {
 	if (client->state != CLIENT_ACTIVE) {
 		log_error("Could not disable client: client is not active");
@@ -515,6 +592,12 @@ static int seat_disable_client(struct client *client) {
 	return 0;
 }
 
+/*
+ * seat_ack_disable_client finalizes disable of a client, and activates the
+ * next applicable client if any. As disable is intended for session switching,
+ * there should either be a queued session or we are on a different VT. In
+ * either case, we should not risk the client being re-opened.
+ */
 int seat_ack_disable_client(struct client *client) {
 	struct seat *seat = client->seat;
 	if (client->state != CLIENT_PENDING_DISABLE) {
@@ -539,6 +622,13 @@ int seat_ack_disable_client(struct client *client) {
 	return 0;
 }
 
+/*
+ * seat_set_next_session queues a new client to be opened based on its session
+ * ID. It can only b eperformed by an active client, and only if a switch has
+ * not already been requested. If the seat is VT-bound, a VT switch is
+ * performed and the VT ack/release mechanism takes care of the rest to avoid
+ * conflicts between the two mechanisms.
+ */
 int seat_set_next_session(struct client *client, int session) {
 	if (client->state != CLIENT_ACTIVE) {
 		log_error("Could not set next session: client is not active");
@@ -595,6 +685,11 @@ int seat_set_next_session(struct client *client, int session) {
 	return 0;
 }
 
+/*
+ * seat_vt_activate is called when a VT activation signal is received. We
+ * respond by acking the signal and finding an applicable client for the newly
+ * opened VT.
+ */
 int seat_vt_activate(struct seat *seat) {
 	if (!seat->vt_bound) {
 		log_debug("VT activation on non VT-bound seat, ignoring");
@@ -609,6 +704,11 @@ int seat_vt_activate(struct seat *seat) {
 	return 0;
 }
 
+/*
+ * seat_vt_release is called when a VT release signal is received. We respond
+ * by disabling our current client and acking the signal to let the kernel
+ * proceed with the switch.
+ */
 int seat_vt_release(struct seat *seat) {
 	if (!seat->vt_bound) {
 		log_debug("VT release request on non VT-bound seat, ignoring");
