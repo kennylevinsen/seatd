@@ -202,10 +202,7 @@ static int handle_close_seat(struct client *client) {
 		log_error("Protocol error: no seat associated with client");
 		return -1;
 	}
-	if (seat_remove_client(client) == -1) {
-		log_error("Could not remove client from seat");
-		return -1;
-	}
+	seat_remove_client(client);
 	linked_list_insert(&client->server->idle_clients, &client->link);
 
 	struct proto_header header = {

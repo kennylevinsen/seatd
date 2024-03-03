@@ -19,9 +19,6 @@
 #include "terminal.h"
 #include "wscons.h"
 
-static int seat_close_client(struct client *client);
-static int vt_close(int vt);
-
 struct seat *seat_create(const char *seat_name, bool vt_bound) {
 	struct seat *seat = calloc(1, sizeof(struct seat));
 	if (seat == NULL) {
@@ -119,6 +116,43 @@ static int vt_ack(struct seat *seat, bool release) {
 	return 0;
 }
 
+static int seat_activate(struct seat *seat) {
+	if (seat->active_client != NULL) {
+		return 0;
+	}
+
+	struct client *next_client = NULL;
+	if (seat->next_client != NULL) {
+		log_debugf("Activating next queued client on %s", seat->seat_name);
+		next_client = seat->next_client;
+		seat->next_client = NULL;
+	} else if (linked_list_empty(&seat->clients)) {
+		log_infof("No clients on %s to activate", seat->seat_name);
+		return -1;
+	} else if (seat->vt_bound && seat->cur_vt == -1) {
+		return -1;
+	} else if (seat->vt_bound) {
+		for (struct linked_list *elem = seat->clients.next; elem != &seat->clients;
+		     elem = elem->next) {
+			struct client *client = (struct client *)elem;
+			if (client->session == seat->cur_vt) {
+				log_debugf("Activating client belonging to VT %d", seat->cur_vt);
+				next_client = client;
+				goto done;
+			}
+		}
+
+		log_infof("No clients belonging to VT %d to activate", seat->cur_vt);
+		return -1;
+	} else {
+		log_debugf("Activating first client on %s", seat->seat_name);
+		next_client = (struct client *)seat->clients.next;
+	}
+
+done:
+	return seat_open_client(seat, next_client);
+}
+
 int seat_add_client(struct seat *seat, struct client *client) {
 	if (client->seat != NULL) {
 		log_error("Could not add client: client is already a member of a seat");
@@ -171,26 +205,46 @@ int seat_add_client(struct seat *seat, struct client *client) {
 	return 0;
 }
 
-int seat_remove_client(struct client *client) {
+void seat_remove_client(struct client *client) {
 	struct seat *seat = client->seat;
 	if (seat->next_client == client) {
 		seat->next_client = NULL;
 	}
 
-	while (!linked_list_empty(&client->devices)) {
-		struct seat_device *device = (struct seat_device *)client->devices.next;
-		seat_close_device(client, device);
-	}
-
 	linked_list_remove(&client->link);
 	linked_list_init(&client->link);
 
-	seat_close_client(client);
+	while (!linked_list_empty(&client->devices)) {
+		struct seat_device *device = (struct seat_device *)client->devices.next;
+		if (seat_close_device(client, device) == -1) {
+			log_errorf("Could not close %s: %s", device->path, strerror(errno));
+		}
+	}
+
+	bool was_current = seat->active_client == client;
+	if (was_current) {
+		seat->active_client = NULL;
+		seat_activate(seat);
+	}
+
+	if (seat->vt_bound) {
+		if (was_current && seat->active_client == NULL) {
+			// This client was current, but there were no clients
+			// waiting to take this VT, so clean it up.
+			log_debug("Closing active VT");
+			vt_close(seat->cur_vt);
+		} else if (!was_current && client->state != CLIENT_CLOSED) {
+			// This client was not current, but as the client was
+			// running, we need to clean up the VT.
+			log_debug("Closing inactive VT");
+			vt_close(client->session);
+		}
+	}
+
+	client->state = CLIENT_CLOSED;
 	client->seat = NULL;
 
 	log_infof("Removed client %d from %s", client->session, seat->seat_name);
-
-	return 0;
 }
 
 struct seat_device *seat_find_device(struct client *client, int device_id) {
@@ -388,43 +442,6 @@ static int seat_activate_device(struct seat_device *seat_device) {
 	return 0;
 }
 
-static int seat_activate(struct seat *seat) {
-	if (seat->active_client != NULL) {
-		return 0;
-	}
-
-	struct client *next_client = NULL;
-	if (seat->next_client != NULL) {
-		log_debugf("Activating next queued client on %s", seat->seat_name);
-		next_client = seat->next_client;
-		seat->next_client = NULL;
-	} else if (linked_list_empty(&seat->clients)) {
-		log_infof("No clients on %s to activate", seat->seat_name);
-		return -1;
-	} else if (seat->vt_bound && seat->cur_vt == -1) {
-		return -1;
-	} else if (seat->vt_bound) {
-		for (struct linked_list *elem = seat->clients.next; elem != &seat->clients;
-		     elem = elem->next) {
-			struct client *client = (struct client *)elem;
-			if (client->session == seat->cur_vt) {
-				log_debugf("Activating client belonging to VT %d", seat->cur_vt);
-				next_client = client;
-				goto done;
-			}
-		}
-
-		log_infof("No clients belonging to VT %d to activate", seat->cur_vt);
-		return -1;
-	} else {
-		log_debugf("Activating first client on %s", seat->seat_name);
-		next_client = (struct client *)seat->clients.next;
-	}
-
-done:
-	return seat_open_client(seat, next_client);
-}
-
 int seat_open_client(struct seat *seat, struct client *client) {
 	if (client->state != CLIENT_NEW && client->state != CLIENT_DISABLED) {
 		log_error("Could not enable client: client is not new or disabled");
@@ -466,41 +483,6 @@ error:
 		vt_close(seat->cur_vt);
 	}
 	return -1;
-}
-
-static int seat_close_client(struct client *client) {
-	struct seat *seat = client->seat;
-	while (!linked_list_empty(&client->devices)) {
-		struct seat_device *device = (struct seat_device *)client->devices.next;
-		if (seat_close_device(client, device) == -1) {
-			log_errorf("Could not close %s: %s", device->path, strerror(errno));
-		}
-	}
-
-	bool was_current = seat->active_client == client;
-	if (was_current) {
-		seat->active_client = NULL;
-		seat_activate(seat);
-	}
-
-	if (seat->vt_bound) {
-		if (was_current && seat->active_client == NULL) {
-			// This client was current, but there were no clients
-			// waiting to take this VT, so clean it up.
-			log_debug("Closing active VT");
-			vt_close(seat->cur_vt);
-		} else if (!was_current && client->state != CLIENT_CLOSED) {
-			// This client was not current, but as the client was
-			// running, we need to clean up the VT.
-			log_debug("Closing inactive VT");
-			vt_close(client->session);
-		}
-	}
-
-	client->state = CLIENT_CLOSED;
-	log_infof("Closed client %d on %s", client->session, seat->seat_name);
-
-	return 0;
 }
 
 static int seat_disable_client(struct client *client) {
