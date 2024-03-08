@@ -287,4 +287,5 @@ summary({
 	'libseat-systemd': logind.found() and logind.name() == 'libsystemd',
 	'libseat-elogind': logind.found() and logind.name() == 'libelogind',
 	'server': with_server,
+	'man-pages': scdoc.found(),
 }, bool_yn: true)
