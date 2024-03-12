@@ -341,6 +341,21 @@ static void session_release_control(struct backend_logind *session) {
 	sd_bus_message_unref(msg);
 }
 
+static int session_set_type(struct backend_logind *backend, const char *type) {
+	sd_bus_message *msg = NULL;
+	sd_bus_error error = SD_BUS_ERROR_NULL;
+
+	int ret = sd_bus_call_method(backend->bus, "org.freedesktop.login1", backend->path,
+				     "org.freedesktop.login1.Session", "SetType", &error, &msg, "s",
+				     type);
+	if (ret < 0) {
+		log_errorf("Could not set session type: %s", error.message);
+	}
+
+	sd_bus_error_free(&error);
+	sd_bus_message_unref(msg);
+	return ret;
+}
 
 static void set_active(struct backend_logind *backend, bool active) {
 	if (backend->active == active) {
@@ -643,22 +658,6 @@ success:
 error:
 	free(*session_id);
 	*session_id = NULL;
-	return ret;
-}
-
-static int session_set_type(struct backend_logind *backend, const char *type) {
-	sd_bus_message *msg = NULL;
-	sd_bus_error error = SD_BUS_ERROR_NULL;
-
-	int ret = sd_bus_call_method(backend->bus, "org.freedesktop.login1", backend->path,
-				     "org.freedesktop.login1.Session", "SetType", &error, &msg, "s",
-				     type);
-	if (ret < 0) {
-		log_errorf("Could not set session type: %s", error.message);
-	}
-
-	sd_bus_error_free(&error);
-	sd_bus_message_unref(msg);
 	return ret;
 }
 
