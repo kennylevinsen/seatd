@@ -442,7 +442,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 
 	bool is_session = strcmp(interface, "org.freedesktop.login1.Session") == 0;
 	bool is_seat = strcmp(interface, "org.freedesktop.login1.Seat") == 0;
-	if (!is_session || !is_seat) {
+	if (!is_session && !is_seat) {
 		// not interesting for us; ignore
 		return 0;
 	}
