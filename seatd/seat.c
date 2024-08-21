@@ -12,6 +12,7 @@
 #include "client.h"
 #include "drm.h"
 #include "evdev.h"
+#include "hidraw.h"
 #include "linked_list.h"
 #include "log.h"
 #include "protocol.h"
@@ -342,6 +343,8 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		type = SEAT_DEVICE_TYPE_DRM;
 	} else if (path_is_wscons(sanitized_path)) {
 		type = SEAT_DEVICE_TYPE_WSCONS;
+	} else if (path_is_hidraw(sanitized_path)) {
+		type = SEAT_DEVICE_TYPE_HIDRAW;
 	} else {
 		log_errorf("%s is not a supported device type ", sanitized_path);
 		errno = ENOENT;
@@ -388,6 +391,9 @@ struct seat_device *seat_open_device(struct client *client, const char *path) {
 		// Nothing to do here
 		break;
 	case SEAT_DEVICE_TYPE_WSCONS:
+		// Nothing to do here
+		break;
+	case SEAT_DEVICE_TYPE_HIDRAW:
 		// Nothing to do here
 		break;
 	default:
@@ -443,6 +449,12 @@ static int seat_deactivate_device(struct seat_device *seat_device) {
 			return -1;
 		}
 		break;
+	case SEAT_DEVICE_TYPE_HIDRAW:
+		if (hidraw_revoke(seat_device->fd) == -1) {
+			log_errorf("Could not revoke hidraw on device fd: %s", strerror(errno));
+			return -1;
+		}
+		break;
 	case SEAT_DEVICE_TYPE_WSCONS:
 		// Nothing to do here
 		break;
@@ -493,6 +505,9 @@ static int seat_activate_device(struct seat_device *seat_device) {
 		seat_device->active = true;
 		break;
 	case SEAT_DEVICE_TYPE_EVDEV:
+		errno = EINVAL;
+		return -1;
+	case SEAT_DEVICE_TYPE_HIDRAW:
 		errno = EINVAL;
 		return -1;
 	case SEAT_DEVICE_TYPE_WSCONS:
