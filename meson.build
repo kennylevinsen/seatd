@@ -113,6 +113,7 @@ server_files = [
 	'common/terminal.c',
 	'common/connection.c',
 	'common/evdev.c',
+	'common/hidraw.c',
 	'common/drm.c',
 	'common/wscons.c',
 	'seatd/poller.c',
