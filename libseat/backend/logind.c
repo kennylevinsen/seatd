@@ -98,8 +98,11 @@ static void check_pending_events(struct backend_logind *backend) {
 	sd_bus_get_n_queued_write(backend->bus, &queued_write);
 
 	if (queued_read == 0 && queued_write == 0) {
+		log_debug("check_pending_events: nothing queued");
 		return;
 	}
+
+	log_debug("check_pending_events: issuing ping");
 
 	// The sd_bus instance has queued data, so a dispatch is required.
 	// However, we likely already drained our socket, so there will not be
@@ -113,6 +116,8 @@ static void check_pending_events(struct backend_logind *backend) {
 }
 
 static int open_device(struct libseat *base, const char *path, int *fd) {
+	log_debug("open_device");
+
 	struct backend_logind *session = backend_logind_from_libseat_backend(base);
 
 	int ret;
@@ -167,6 +172,7 @@ out:
 }
 
 static int close_device(struct libseat *base, int device_id) {
+	log_debug("close_device");
 	struct backend_logind *session = backend_logind_from_libseat_backend(base);
 	if (device_id < 0) {
 		errno = EINVAL;
@@ -262,6 +268,7 @@ static int poll_connection(struct backend_logind *backend, int timeout) {
 }
 
 static int dispatch_and_execute(struct libseat *base, int timeout) {
+	log_debug("dispatch_and_execute");
 	struct backend_logind *backend = backend_logind_from_libseat_backend(base);
 	if (backend->initial_setup) {
 		backend->initial_setup = false;
@@ -429,6 +436,8 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 	struct backend_logind *session = userdata;
 	int ret = 0;
 
+	log_debugf("handle_properties_changed: has_drm: %d", session->has_drm);
+
 	if (session->has_drm > 0) {
 		return 0;
 	}
@@ -437,11 +446,13 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 	const char *interface;
 	ret = sd_bus_message_read_basic(msg, 's', &interface); // skip path
 	if (ret < 0) {
+		log_debug("interface read failed");
 		goto error;
 	}
 
 	bool is_session = strcmp(interface, "org.freedesktop.login1.Session") == 0;
 	bool is_seat = strcmp(interface, "org.freedesktop.login1.Seat") == 0;
+	log_debugf("handle_properties_changed: is_session: %d, is_seat: %d", is_session, is_seat);
 	if (!is_session && !is_seat) {
 		// not interesting for us; ignore
 		return 0;
@@ -450,6 +461,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 	// PropertiesChanged arg 2: changed properties with values
 	ret = sd_bus_message_enter_container(msg, 'a', "{sv}");
 	if (ret < 0) {
+		log_debug("entering property container failed");
 		goto error;
 	}
 
@@ -457,6 +469,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 	while ((ret = sd_bus_message_enter_container(msg, 'e', "sv")) > 0) {
 		ret = sd_bus_message_read_basic(msg, 's', &s);
 		if (ret < 0) {
+			log_debug("inner read failed");
 			goto error;
 		}
 
@@ -464,12 +477,14 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 			int ret;
 			ret = sd_bus_message_enter_container(msg, 'v', "b");
 			if (ret < 0) {
+				log_debug("enter active container failed");
 				goto error;
 			}
 
 			bool value;
 			ret = sd_bus_message_read_basic(msg, 'b', &value);
 			if (ret < 0) {
+				log_debug("active container read failed");
 				goto error;
 			}
 
@@ -482,6 +497,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 
 		ret = sd_bus_message_exit_container(msg);
 		if (ret < 0) {
+			log_debug("inner container exit failed");
 			goto error;
 		}
 	}
@@ -492,6 +508,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 
 	ret = sd_bus_message_exit_container(msg);
 	if (ret < 0) {
+		log_debug("outer container exit failed");
 		goto error;
 	}
 
