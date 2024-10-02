@@ -440,9 +440,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 		goto error;
 	}
 
-	bool is_session = strcmp(interface, "org.freedesktop.login1.Session") == 0;
-	bool is_seat = strcmp(interface, "org.freedesktop.login1.Seat") == 0;
-	if (!is_session && !is_seat) {
+	if (strcmp(interface, "org.freedesktop.login1.Session") != 0) {
 		// not interesting for us; ignore
 		return 0;
 	}
@@ -459,8 +457,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 		if (ret < 0) {
 			goto error;
 		}
-
-		if (is_session && strcmp(s, "Active") == 0) {
+		if (strcmp(s, "Active") == 0) {
 			int ret;
 			ret = sd_bus_message_enter_container(msg, 'v', "b");
 			if (ret < 0) {
@@ -498,7 +495,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 	// PropertiesChanged arg 3: changed properties without values
 	sd_bus_message_enter_container(msg, 'a', "s");
 	while ((ret = sd_bus_message_read_basic(msg, 's', &s)) > 0) {
-		if (is_session && strcmp(s, "Active") == 0) {
+		if (strcmp(s, "Active") == 0) {
 			sd_bus_error error = SD_BUS_ERROR_NULL;
 			const char *obj = "org.freedesktop.login1.Session";
 			const char *field = "Active";
@@ -546,13 +543,6 @@ static int add_signal_matches(struct backend_logind *backend) {
 	}
 
 	ret = sd_bus_match_signal(backend->bus, NULL, logind, backend->path, property_interface,
-				  "PropertiesChanged", handle_properties_changed, backend);
-	if (ret < 0) {
-		log_errorf("Could not add D-Bus match: %s", strerror(-ret));
-		return ret;
-	}
-
-	ret = sd_bus_match_signal(backend->bus, NULL, logind, backend->seat_path, property_interface,
 				  "PropertiesChanged", handle_properties_changed, backend);
 	if (ret < 0) {
 		log_errorf("Could not add D-Bus match: %s", strerror(-ret));
