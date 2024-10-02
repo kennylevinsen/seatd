@@ -28,14 +28,6 @@
 #include "libseat.h"
 #include "log.h"
 
-static int dev_major_is_drm(unsigned int dev_major) {
-	return dev_major == 226;
-}
-
-static int dev_is_drm(dev_t device) {
-	return dev_major_is_drm(major(device));
-}
-
 struct backend_logind {
 	struct libseat base;
 	const struct libseat_seat_listener *seat_listener;
@@ -49,7 +41,6 @@ struct backend_logind {
 
 	bool active;
 	bool initial_setup;
-	int has_drm;
 };
 
 const struct seat_impl logind_impl;
@@ -152,11 +143,6 @@ static int open_device(struct libseat *base, const char *path, int *fd) {
 		goto out;
 	}
 
-	if (dev_is_drm(st.st_rdev)) {
-		session->has_drm++;
-		log_debugf("DRM device opened, current total: %d", session->has_drm);
-	}
-
 	*fd = tmpfd;
 
 out:
@@ -179,11 +165,6 @@ static int close_device(struct libseat *base, int device_id) {
 	if (fstat(fd, &st) < 0) {
 		log_errorf("Could not stat fd %d", fd);
 		return -1;
-	}
-	if (dev_is_drm(st.st_rdev)) {
-		session->has_drm--;
-		log_debugf("DRM device closed, current total: %d", session->has_drm);
-		assert(session->has_drm >= 0);
 	}
 
 	sd_bus_message *msg = NULL;
@@ -383,13 +364,28 @@ static int handle_pause_device(sd_bus_message *msg, void *userdata, sd_bus_error
 		return 0;
 	}
 
-	if (dev_major_is_drm(major) && strcmp(type, "gone") != 0) {
-		log_debugf("DRM device paused: %s", type);
-		assert(session->has_drm > 0);
-		set_active(session, false);
+	// The device pause is associated with one of three causes:
+	// - gone, which indicates that the device has been removed
+	// - force, which indicates that our access to the device has been removed
+	// - pause, which asks us to gracefully give up access to the device
+	bool gone = strcmp(type, "gone") == 0;
+	bool pause = strcmp(type, "pause") == 0;
+	if (gone) {
+		log_debugf("Device removed: %d:%d", major, minor);
+		return 0;
 	}
 
-	if (strcmp(type, "pause") == 0) {
+	log_debugf("Device paused (%s): %d:%d", type, major, minor);
+
+	if (pause) {
+		// We need to send PauseDeviceComplete after suspending
+		// devices. For now, let's assume that running the disable_seat
+		// handler will close everything immediately. The "right" thing
+		// to do is to queue up pause completions until the seat user
+		// called disable_seat to acknowledge the session being dead.
+		// When "force" is sent, we don't need to ack and can just rely
+		// on the coming Active session property change.
+		set_active(session, false);
 		ret = sd_bus_call_method(session->bus, "org.freedesktop.login1", session->path,
 					 "org.freedesktop.login1.Session", "PauseDeviceComplete",
 					 ret_error, &msg, "uu", major, minor);
@@ -402,36 +398,10 @@ static int handle_pause_device(sd_bus_message *msg, void *userdata, sd_bus_error
 	return 0;
 }
 
-static int handle_resume_device(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
-	(void)ret_error;
-	struct backend_logind *session = userdata;
-	int ret;
-
-	int fd;
-	uint32_t major, minor;
-	ret = sd_bus_message_read(msg, "uuh", &major, &minor, &fd);
-	if (ret < 0) {
-		log_errorf("Could not parse D-Bus response: %s", strerror(-ret));
-		return 0;
-	}
-
-	if (dev_major_is_drm(major)) {
-		log_debug("DRM device resumed");
-		assert(session->has_drm > 0);
-		set_active(session, true);
-	}
-
-	return 0;
-}
-
 static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
 	(void)ret_error;
 	struct backend_logind *session = userdata;
 	int ret = 0;
-
-	if (session->has_drm > 0) {
-		return 0;
-	}
 
 	// PropertiesChanged arg 1: interface
 	const char *interface;
@@ -548,13 +518,6 @@ static int add_signal_matches(struct backend_logind *backend) {
 
 	ret = sd_bus_match_signal(backend->bus, NULL, logind, backend->path, session_interface,
 				  "PauseDevice", handle_pause_device, backend);
-	if (ret < 0) {
-		log_errorf("Could not add D-Bus match: %s", strerror(-ret));
-		return ret;
-	}
-
-	ret = sd_bus_match_signal(backend->bus, NULL, logind, backend->path, session_interface,
-				  "ResumeDevice", handle_resume_device, backend);
 	if (ret < 0) {
 		log_errorf("Could not add D-Bus match: %s", strerror(-ret));
 		return ret;
