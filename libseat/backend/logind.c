@@ -435,7 +435,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 
 	// PropertiesChanged arg 1: interface
 	const char *interface;
-	ret = sd_bus_message_read_basic(msg, 's', &interface); // skip path
+	ret = sd_bus_message_read_basic(msg, 's', &interface);
 	if (ret < 0) {
 		goto error;
 	}
@@ -472,9 +472,16 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 
 			log_debugf("%s state changed: %d", s, value);
 			set_active(session, value);
-			return 0;
+			ret = sd_bus_message_exit_container(msg);
+			if (ret < 0) {
+				goto error;
+			}
+
 		} else {
-			sd_bus_message_skip(msg, "{sv}");
+			ret = sd_bus_message_skip(msg, "v");
+			if (ret < 0) {
+				goto error;
+			}
 		}
 
 		ret = sd_bus_message_exit_container(msg);
@@ -482,7 +489,6 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 			goto error;
 		}
 	}
-
 	if (ret < 0) {
 		goto error;
 	}
@@ -493,7 +499,11 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 	}
 
 	// PropertiesChanged arg 3: changed properties without values
-	sd_bus_message_enter_container(msg, 'a', "s");
+	ret = sd_bus_message_enter_container(msg, 'a', "s");
+	if (ret < 0) {
+		goto error;
+	}
+
 	while ((ret = sd_bus_message_read_basic(msg, 's', &s)) > 0) {
 		if (strcmp(s, "Active") == 0) {
 			sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -505,15 +515,23 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 							  &value);
 			if (ret < 0) {
 				log_errorf("Could not get '%s' property: %s", field, error.message);
-				return 0;
+				continue;
 			}
 
 			log_debugf("%s state changed: %d", field, value);
 			set_active(session, value);
-			return 0;
 		}
 	}
+	if (ret < 0) {
+		goto error;
+	}
 
+	ret = sd_bus_message_exit_container(msg);
+	if (ret < 0) {
+		goto error;
+	}
+
+	return 0;
 error:
 	if (ret < 0) {
 		log_errorf("Could not parse D-Bus PropertiesChanged: %s", strerror(-ret));
