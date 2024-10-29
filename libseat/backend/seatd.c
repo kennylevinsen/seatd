@@ -273,6 +273,7 @@ static int poll_connection(struct backend_seatd *backend, int timeout) {
 	}
 
 	if (fd.revents & (POLLERR | POLLHUP)) {
+		set_error(backend);
 		errno = EPIPE;
 		return -1;
 	}
@@ -281,9 +282,11 @@ static int poll_connection(struct backend_seatd *backend, int timeout) {
 	if (fd.revents & POLLIN) {
 		len = connection_read(&backend->connection);
 		if (len == 0) {
+			set_error(backend);
 			errno = EIO;
 			return -1;
 		} else if (len == -1 && errno != EAGAIN) {
+			set_error(backend);
 			return -1;
 		}
 	}
