@@ -242,8 +242,17 @@ static int read_and_queue(struct backend_seatd *backend, int *opcode) {
 			}
 			break;
 		default:
-			if (opcode != NULL &&
-			    connection_pending(&backend->connection) >= header.size) {
+			// If we do not have an opcode pointer, the caller only
+			// expected to see background events so this would be
+			// an error and we might as well stop now. Otherwise,
+			// store the opcode once we have the full message.
+			if (opcode == NULL) {
+				log_errorf("Unexpected response: expected background event, got opcode %d",
+					   header.opcode);
+				set_error(backend);
+				errno = EBADMSG;
+				packets = -1;
+			} else if (connection_pending(&backend->connection) >= header.size) {
 				*opcode = header.opcode;
 			}
 			connection_restore(&backend->connection, sizeof header);
@@ -308,20 +317,6 @@ static int get_fd(struct libseat *base) {
 	return backend->connection.fd;
 }
 
-static int read_and_execute(struct backend_seatd *backend) {
-	int opcode = 0;
-	int dispatched = read_and_queue(backend, &opcode);
-	if (dispatched == -1) {
-		return -1;
-	} else if (opcode != 0) {
-		// We should only receive background events here, but we got a return value.
-		errno = EINVAL;
-		return -1;
-	}
-	dispatched += execute_events(backend);
-	return dispatched;
-}
-
 static int dispatch(struct libseat *base, int timeout) {
 	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
 	if (backend->error) {
@@ -329,10 +324,12 @@ static int dispatch(struct libseat *base, int timeout) {
 		return -1;
 	}
 
-	int predispatch = read_and_execute(backend);
+	int predispatch = read_and_queue(backend, NULL);
 	if (predispatch == -1) {
-		return -1;
+		log_errorf("Could not read and queue events: %s", strerror(errno));
+		goto error;
 	}
+	predispatch += execute_events(backend);
 
 	// We don't want to block if we dispatched something, as the
 	// caller might be waiting for the result. However, we'd also
@@ -348,15 +345,20 @@ static int dispatch(struct libseat *base, int timeout) {
 		return predispatch;
 	} else if (read == -1 && errno != EAGAIN) {
 		log_errorf("Could not read from connection: %s", strerror(errno));
-		return -1;
+		goto error;
 	}
 
-	int postdispatch = read_and_execute(backend);
+	int postdispatch = read_and_queue(backend, NULL);
 	if (postdispatch == -1) {
-		return -1;
+		log_errorf("Could not read and queue events: %s", strerror(errno));
+		goto error;
 	}
+	postdispatch += execute_events(backend);
 
 	return predispatch + postdispatch;
+
+error:
+	return -1;
 }
 
 static struct libseat *_open_seat(const struct libseat_seat_listener *listener, void *data, int fd) {
