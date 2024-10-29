@@ -559,6 +559,7 @@ static int switch_session(struct libseat *base, int session) {
 		return -1;
 	}
 	if (session < 0) {
+		errno = EINVAL;
 		return -1;
 	}
 
