@@ -460,6 +460,9 @@ static int send_ping(struct backend_seatd *backend) {
 }
 
 static void check_pending_events(struct backend_seatd *backend) {
+	if (read_and_queue(backend, NULL) == -1) {
+		return;
+	}
 	if (linked_list_empty(&backend->pending_events)) {
 		return;
 	}
