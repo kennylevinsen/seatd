@@ -419,28 +419,29 @@ static struct libseat *open_seat(const struct libseat_seat_listener *listener, v
 }
 
 static int close_seat(struct libseat *base) {
+	int res = 0;
 	struct backend_seatd *backend = backend_seatd_from_libseat_backend(base);
+	if (backend->error) {
+		res = -1;
+		goto done;
+	}
 
 	struct proto_header header = {
 		.opcode = CLIENT_CLOSE_SEAT,
 		.size = 0,
 	};
 	if (conn_put(backend, &header, sizeof header) == -1 || read_until_response(backend) == -1) {
-		goto error;
+		res = -1;
 	}
 
 	if (read_header(backend, SERVER_SEAT_CLOSED, 0, false) == SIZE_MAX) {
-		goto error;
+		res = -1;
 	}
 
+done:
 	execute_events(backend);
 	destroy(backend);
-	return 0;
-
-error:
-	execute_events(backend);
-	destroy(backend);
-	return -1;
+	return res;
 }
 
 static const char *seat_name(struct libseat *base) {
@@ -503,21 +504,20 @@ static int open_device(struct libseat *base, const char *path, int *fd) {
 	if (conn_put(backend, &header, sizeof header) == -1 ||
 	    conn_put(backend, &msg, sizeof msg) == -1 || conn_put(backend, path, pathlen) == -1 ||
 	    read_until_response(backend) == -1) {
-		goto error;
+		return -1;
 	}
 
+	int res = 0;
 	struct proto_server_device_opened rmsg;
 	if (read_header(backend, SERVER_DEVICE_OPENED, sizeof rmsg, false) == SIZE_MAX ||
 	    conn_get(backend, &rmsg, sizeof rmsg) == -1 || conn_get_fd(backend, fd)) {
-		goto error;
+		res = -1;
+	} else {
+		res = rmsg.device_id;
 	}
 
 	check_pending_events(backend);
-	return rmsg.device_id;
-
-error:
-	check_pending_events(backend);
-	return -1;
+	return res;
 }
 
 static int close_device(struct libseat *base, int device_id) {
@@ -540,19 +540,16 @@ static int close_device(struct libseat *base, int device_id) {
 	};
 	if (conn_put(backend, &header, sizeof header) == -1 ||
 	    conn_put(backend, &msg, sizeof msg) == -1 || read_until_response(backend) == -1) {
-		goto error;
+		return -1;
 	}
 
+	int res = 0;
 	if (read_header(backend, SERVER_DEVICE_CLOSED, 0, false) == SIZE_MAX) {
-		goto error;
+		res = -1;
 	}
 
 	check_pending_events(backend);
-	return 0;
-
-error:
-	check_pending_events(backend);
-	return -1;
+	return res;
 }
 
 static int switch_session(struct libseat *base, int session) {
@@ -574,19 +571,16 @@ static int switch_session(struct libseat *base, int session) {
 	};
 	if (conn_put(backend, &header, sizeof header) == -1 ||
 	    conn_put(backend, &msg, sizeof msg) == -1 || read_until_response(backend) == -1) {
-		goto error;
+		return -1;
 	}
 
+	int res = 0;
 	if (read_header(backend, SERVER_SESSION_SWITCHED, 0, false) == SIZE_MAX) {
-		goto error;
+		res = -1;
 	}
 
 	check_pending_events(backend);
-	return 0;
-
-error:
-	check_pending_events(backend);
-	return -1;
+	return res;
 }
 
 static int disable_seat(struct libseat *base) {
@@ -600,19 +594,16 @@ static int disable_seat(struct libseat *base) {
 		.size = 0,
 	};
 	if (conn_put(backend, &header, sizeof header) == -1 || read_until_response(backend) == -1) {
-		goto error;
+		return -1;
 	}
 
+	int res = 0;
 	if (read_header(backend, SERVER_SEAT_DISABLED, 0, false) == SIZE_MAX) {
-		goto error;
+		res = -1;
 	}
 
 	check_pending_events(backend);
-	return 0;
-
-error:
-	check_pending_events(backend);
-	return -1;
+	return res;
 }
 
 const struct seat_impl seatd_impl = {
