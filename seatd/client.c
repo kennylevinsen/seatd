@@ -388,7 +388,7 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 			log_error("Protocol error: invalid open_device message");
 			return -1;
 		}
-		if (msg.path_len > size - sizeof msg) {
+		if (msg.path_len != size - sizeof msg) {
 			log_errorf("Protocol error: device path_len does not match remaining message size (%d != %zd)",
 				   msg.path_len, size);
 			return -1;
@@ -411,7 +411,8 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 	}
 	case CLIENT_CLOSE_DEVICE: {
 		struct proto_client_close_device msg;
-		if (sizeof msg > size || connection_get(&client->connection, &msg, sizeof msg) == -1) {
+		if (sizeof msg != size ||
+		    connection_get(&client->connection, &msg, sizeof msg) == -1) {
 			log_error("Protocol error: invalid close_device message");
 			return -1;
 		}
@@ -421,7 +422,8 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 	}
 	case CLIENT_SWITCH_SESSION: {
 		struct proto_client_switch_session msg;
-		if (sizeof msg > size || connection_get(&client->connection, &msg, sizeof msg) == -1) {
+		if (sizeof msg != size ||
+		    connection_get(&client->connection, &msg, sizeof msg) == -1) {
 			log_error("Protocol error: invalid switch_session message");
 			return -1;
 		}
