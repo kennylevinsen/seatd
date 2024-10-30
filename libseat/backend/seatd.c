@@ -398,7 +398,24 @@ static struct libseat *_open_seat(const struct libseat_seat_listener *listener, 
 		errno = EBADMSG;
 		goto backend_error;
 	}
+	if (rmsg.seat_name_len > MAX_SEAT_LEN) {
+		log_errorf("Invalid message: seat_name too long (%d)", rmsg.seat_name_len);
+		errno = EBADMSG;
+		goto backend_error;
+	}
 	if (conn_get(backend, backend->seat_name, rmsg.seat_name_len) == -1) {
+		goto backend_error;
+	}
+	// handle old seatd gracefully (seat_name without null byte)
+	if (rmsg.seat_name_len == 0 ||
+	    (rmsg.seat_name_len < MAX_SEAT_LEN && backend->seat_name[rmsg.seat_name_len - 1] != 0)) {
+		backend->seat_name[rmsg.seat_name_len] = 0;
+		rmsg.seat_name_len++;
+	}
+	if (rmsg.seat_name_len == 0 ||
+	    strnlen(backend->seat_name, rmsg.seat_name_len) != (uint16_t)(rmsg.seat_name_len - 1)) {
+		log_error("Invalid message: seat_name not null terminated");
+		errno = EBADMSG;
 		goto backend_error;
 	}
 

@@ -177,7 +177,7 @@ static int handle_open_seat(struct client *client) {
 		return -1;
 	}
 
-	size_t seat_name_len = strlen(seat_name);
+	size_t seat_name_len = strlen(seat_name) + 1;
 	struct proto_server_seat_opened rmsg = {
 		.seat_name_len = (uint16_t)seat_name_len,
 	};
@@ -384,13 +384,25 @@ static int client_handle_opcode(struct client *client, uint16_t opcode, size_t s
 	case CLIENT_OPEN_DEVICE: {
 		char path[MAX_PATH_LEN];
 		struct proto_client_open_device msg;
-		if (sizeof msg > size || connection_get(&client->connection, &msg, sizeof msg) == -1 ||
-		    sizeof msg + msg.path_len > size || msg.path_len > MAX_PATH_LEN) {
+		if (sizeof msg > size || connection_get(&client->connection, &msg, sizeof msg) == -1) {
 			log_error("Protocol error: invalid open_device message");
+			return -1;
+		}
+		if (msg.path_len > size - sizeof msg) {
+			log_errorf("Protocol error: device path_len does not match remaining message size (%d != %zd)",
+				   msg.path_len, size);
+			return -1;
+		}
+		if (msg.path_len > MAX_PATH_LEN) {
+			log_errorf("Protocol error: device path too long: (%d)", msg.path_len);
 			return -1;
 		}
 		if (connection_get(&client->connection, path, msg.path_len) == -1) {
 			log_error("Protocol error: invalid open_device message");
+			return -1;
+		}
+		if (msg.path_len == 0 || strnlen(path, msg.path_len) != (uint16_t)(msg.path_len - 1)) {
+			log_error("Protocol error: device path not null terminated");
 			return -1;
 		}
 
