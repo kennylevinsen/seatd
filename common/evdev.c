@@ -23,7 +23,7 @@ int path_is_evdev(const char *path) {
 }
 
 int evdev_revoke(int fd) {
-	return ioctl(fd, EVIOCREVOKE, NULL);
+	return ioctl(fd, (int)EVIOCREVOKE, NULL);
 }
 #else
 int path_is_evdev(const char *path) {
