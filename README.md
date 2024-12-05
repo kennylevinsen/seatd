@@ -29,9 +29,9 @@ Which backend is in use is transparent to the application, providing a simple co
 
 ## Why not (e)logind?
 
-systemd-logind is not portable, and being part of the systemd project, it cannot be used in an environment not based on systemd. Furthermore, "simple" is definitely not within the set of adjectives that can be used to describe logind. For those in the dark, [take a glance at its API](https://www.freedesktop.org/wiki/Software/systemd/logind/). Plus, competition is healthy.
+systemd-logind is not portable, and being part of the systemd project, it cannot be used in an environment not based on or compatible with systemd.
 
-elogind tries to isolate systemd-logind form systemd through brute-force. This requires actively fighting against upstream design decisions for deep integration, and the efforts must be repeated every time one syncs with upstream. And even after all this work, one is left with nothing but a hackjob.
+elogind tries to isolate systemd-logind from systemd through brute-force. This requires actively fighting against upstream design decisions for deep integration, and the efforts must be repeated every time one syncs with upstream. And even after all this work, one is left with nothing but a hackjob.
 
 Why spend time isolating logind and keeping up with upstream when we could instead create something better with less work?
 
