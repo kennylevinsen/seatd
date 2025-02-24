@@ -63,8 +63,28 @@ add_project_arguments(cc.get_supported_link_arguments(
 	language: 'c',
 )
 
+# Check glibc version using compiler defines
+glibc_major = cc.get_define('__GLIBC__', prefix: '#include <features.h>')
+glibc_minor = cc.get_define('__GLIBC_MINOR__', prefix: '#include <features.h>')
+musl_check = cc.get_define('__MUSL__', prefix: '#include <features.h>')
+
+if glibc_major != '' and glibc_minor != ''
+    glibc_major_int = glibc_major.to_int()
+    glibc_minor_int = glibc_minor.to_int()
+    if glibc_major_int < 2 or (glibc_major_int == 2 and glibc_minor_int <= 35)
+        fortify_level = 2
+    else
+        fortify_level = 3
+    endif
+elif musl_check != ''
+    fortify_level = 2  # musl supports up to 2
+else
+    fortify_level = 2  # Fallback for other C libraries
+endif
+
+# Apply _FORTIFY_SOURCE level
 if ['debugoptimized', 'release', 'minsize'].contains(get_option('buildtype'))
-	add_project_arguments('-D_FORTIFY_SOURCE=2', language: 'c')
+    add_project_arguments('-D_FORTIFY_SOURCE=' + fortify_level.to_string(), language: 'c')
 endif
 
 if get_option('buildtype').startswith('debug')
