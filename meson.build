@@ -46,12 +46,16 @@ add_project_arguments(cc.get_supported_arguments(
 		'-Wmissing-include-dirs',
 		'-Wold-style-definition', # nop
 		'-Wpointer-arith',
+		'-Wstrict-aliasing',
 		'-Wstrict-prototypes',
 		'-Wimplicit-fallthrough',
 		'-Wmissing-prototypes',
 		'-Wno-unknown-warning-option',
 		'-Wno-unused-command-line-argument',
 		'-Wvla',
+		# GCC warns if hardened is used without optimization
+		'-Wno-hardened',
+		'-fhardened',
 	]),
 	language: 'c',
 )
@@ -62,10 +66,6 @@ add_project_arguments(cc.get_supported_link_arguments(
 	]),
 	language: 'c',
 )
-
-if ['debugoptimized', 'release', 'minsize'].contains(get_option('buildtype'))
-	add_project_arguments('-D_FORTIFY_SOURCE=2', language: 'c')
-endif
 
 if get_option('buildtype').startswith('debug')
 	add_project_arguments('-DDEBUG', language : 'c')
