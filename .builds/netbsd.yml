@@ -9,14 +9,14 @@ tasks:
       sudo /etc/rc.d/wscons start
       sudo /etc/rc.d/ttys restart
    - prepare: |
-      meson -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dlibseat-logind=disabled build seatd
+      meson setup -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dlibseat-logind=disabled build seatd
    - build: |
       ninja -C build
    - unittest: |
       ninja -C build test
    - smoketest: |
       rm -rf build
-      meson -Db_lundef=false -Db_sanitize=address -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dexamples=enabled -Dlibseat-logind=disabled build seatd
+      meson setup -Db_lundef=false -Db_sanitize=address -Dlibseat-seatd=enabled -Dlibseat-builtin=enabled -Dexamples=enabled -Dlibseat-logind=disabled build seatd
       ninja -C build
       sudo ninja -C build install
       timeout -s SIGKILL 30s sudo SEATD_LOGLEVEL=debug ./build/seatd-launch ./build/simpletest /dev/wskbd
