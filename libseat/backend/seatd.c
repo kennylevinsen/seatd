@@ -155,12 +155,12 @@ static size_t read_header(struct backend_seatd *backend, uint16_t expected_opcod
 	}
 	if (header.opcode != expected_opcode) {
 		struct proto_server_error msg;
-		if (header.opcode != SERVER_ERROR) {
-			log_errorf("Unexpected response: expected opcode %d, received opcode %d",
-				   expected_opcode, header.opcode);
+		if (header.opcode != SERVER_ERROR || header.size != sizeof msg) {
+			log_errorf("Unexpected response: expected opcode %d of length %zd, received opcode %d of length %d",
+				   expected_opcode, sizeof msg, header.opcode, header.size);
 			set_error(backend);
 			errno = EBADMSG;
-		} else if (header.size != sizeof msg || conn_get(backend, &msg, sizeof msg) == -1) {
+		} else if (conn_get(backend, &msg, sizeof msg) == -1) {
 			set_error(backend);
 			errno = EBADMSG;
 		} else {
@@ -338,7 +338,8 @@ static int dispatch(struct libseat *base, int timeout) {
 	// caller might be waiting for the result. However, we'd also
 	// like to read anything pending.
 	int read = 0;
-	if (predispatch > 0 || timeout == 0) {
+	bool immediate_read = predispatch > 0 || timeout == 0;
+	if (immediate_read) {
 		read = connection_read(&backend->connection);
 	} else {
 		read = poll_connection(backend, timeout);
@@ -347,7 +348,8 @@ static int dispatch(struct libseat *base, int timeout) {
 	if (read == 0) {
 		return predispatch;
 	} else if (read == -1 && errno != EAGAIN) {
-		log_errorf("Could not read from connection: %s", strerror(errno));
+		log_errorf("Could not %s from connection: %s", immediate_read ? "read" : "poll",
+			   strerror(errno));
 		goto error;
 	}
 
