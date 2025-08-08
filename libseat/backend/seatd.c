@@ -83,8 +83,7 @@ static struct backend_seatd *backend_seatd_from_libseat_backend(struct libseat *
 
 static void cleanup(struct backend_seatd *backend) {
 	if (backend->connection.fd != -1) {
-		close(backend->connection.fd);
-		backend->connection.fd = -1;
+		shutdown(backend->connection.fd, SHUT_RDWR);
 	}
 	connection_close_fds(&backend->connection);
 	while (!linked_list_empty(&backend->pending_events)) {
@@ -95,6 +94,11 @@ static void cleanup(struct backend_seatd *backend) {
 }
 
 static void destroy(struct backend_seatd *backend) {
+	if (backend->connection.fd != -1) {
+		close(backend->connection.fd);
+		backend->connection.fd = -1;
+	}
+
 	cleanup(backend);
 	free(backend);
 }
