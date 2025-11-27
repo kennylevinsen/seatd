@@ -429,6 +429,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 		}
 		if (strcmp(s, "Active") == 0) {
 			int ret;
+			const char *field = "Active";
 			ret = sd_bus_message_enter_container(msg, 'v', "b");
 			if (ret < 0) {
 				goto error;
@@ -440,7 +441,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 				goto error;
 			}
 
-			log_debugf("%s state changed: %d", s, value);
+			log_debugf("%s state changed: %d", field, value);
 			set_active(session, value);
 			ret = sd_bus_message_exit_container(msg);
 			if (ret < 0) {
