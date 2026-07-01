@@ -3,9 +3,9 @@ Description=Seat management daemon
 Documentation=man:seatd(1)
 
 [Service]
-Type=simple
+Type=notify
 # Specify the group you'd like to grant access to seatd
-ExecStart=seatd -g seat
+ExecStart=readyfd2sd -- seatd -g seat -n %%n
 Restart=always
 RestartSec=1
 
