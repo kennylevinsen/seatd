@@ -287,12 +287,14 @@ static const char *seat_name(struct libseat *base) {
 
 static int session_get_active(struct backend_logind *session, bool *active) {
 	sd_bus_error error = SD_BUS_ERROR_NULL;
+	int value;
 	int ret = sd_bus_get_property_trivial(session->bus, "org.freedesktop.login1", session->path,
 					      "org.freedesktop.login1.Session", "Active", &error,
-					      'b', active);
+					      'b', &value);
 	if (ret < 0) {
 		log_errorf("Could not check if session is active: %s", error.message);
 	}
+	*active = value != 0;
 
 	sd_bus_error_free(&error);
 	return ret;
@@ -441,14 +443,14 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 				goto error;
 			}
 
-			bool value;
+			int value;
 			ret = sd_bus_message_read_basic(msg, 'b', &value);
 			if (ret < 0) {
 				goto error;
 			}
 
 			log_debugf("%s state changed: %d", field, value);
-			set_active(session, value);
+			set_active(session, value != 0);
 			ret = sd_bus_message_exit_container(msg);
 			if (ret < 0) {
 				goto error;
@@ -486,7 +488,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 			sd_bus_error error = SD_BUS_ERROR_NULL;
 			const char *obj = "org.freedesktop.login1.Session";
 			const char *field = "Active";
-			bool value;
+			int value;
 			ret = sd_bus_get_property_trivial(session->bus, "org.freedesktop.login1",
 							  session->path, obj, field, &error, 'b',
 							  &value);
@@ -496,7 +498,7 @@ static int handle_properties_changed(sd_bus_message *msg, void *userdata, sd_bus
 			}
 
 			log_debugf("%s state changed: %d", field, value);
-			set_active(session, value);
+			set_active(session, value != 0);
 		}
 	}
 	if (ret < 0) {
