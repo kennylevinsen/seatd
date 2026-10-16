@@ -372,6 +372,8 @@ error:
 	return -1;
 }
 
+static void check_pending_events(struct backend_seatd *backend);
+
 static struct libseat *_open_seat(const struct libseat_seat_listener *listener, void *data, int fd) {
 	assert(listener != NULL);
 	assert(listener->enable_seat != NULL && listener->disable_seat != NULL);
@@ -432,7 +434,7 @@ static struct libseat *_open_seat(const struct libseat_seat_listener *listener, 
 		goto backend_error;
 	}
 
-	execute_events(backend);
+	check_pending_events(backend);
 	return &backend->base;
 
 backend_error:
