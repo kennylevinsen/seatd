@@ -141,7 +141,6 @@ if get_option('libseat-logind') != 'disabled'
 	if get_option('libseat-logind') == 'auto' and get_option('auto_features').disabled()
 		# Disable logind
 	elif get_option('libseat-logind') == 'auto'
-		assert(get_option('auto_features').auto(), '-Dlibseat-logind must be set to systemd or elogind since auto_features != auto')
 		logind = dependency(['libelogind', 'libsystemd'], required: false)
 	else
 		logind = dependency('lib@0@'.format(get_option('libseat-logind')))
