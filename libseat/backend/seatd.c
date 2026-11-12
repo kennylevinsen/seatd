@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <poll.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -42,7 +43,43 @@ struct backend_seatd {
 	char seat_name[MAX_SEAT_LEN];
 };
 
+static int seatd_take_fd(const char *value) {
+	errno = 0;
+	char *end;
+	long parsed = strtol(value, &end, 10);
+	if (errno != 0 || end == value || *end != '\0' || parsed < 0 || parsed > INT_MAX) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (unsetenv("SEATD_FD") == -1) {
+		return -1;
+	}
+
+	// Take ownership of the inherited connection, as with a newly connected socket.
+	int fd = (int)parsed;
+	int flags = fcntl(fd, F_GETFD);
+	if (flags == -1 || fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == -1) {
+		goto error;
+	}
+	flags = fcntl(fd, F_GETFL);
+	if (flags == -1 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+		goto error;
+	}
+	return fd;
+
+error:;
+	int saved_errno = errno;
+	close(fd);
+	errno = saved_errno;
+	return -1;
+}
+
 static int seatd_connect(void) {
+	const char *inherited = getenv("SEATD_FD");
+	if (inherited != NULL) {
+		return seatd_take_fd(inherited);
+	}
+
 	union {
 		struct sockaddr_un unix;
 		struct sockaddr generic;
